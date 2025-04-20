@@ -175,4 +175,5 @@ cython_debug/
 
 #quitar lo que contenga la palabra pruebas
 *pruebas*
+*/pruebas/*
 
