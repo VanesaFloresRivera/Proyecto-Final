@@ -42,7 +42,7 @@ def extracción_destinos_con_url(sopa):
 
 def url_y_opciones_viajes(pais, viaje,diccionario_opciones):
     URL_ESCRAPEO_CORTA=os.getenv("URL_ESCRAPEO_CORTA")
-    enlace = str(viaje.find_all("a", href=True)).split(" ")[1].split('href=')[1].strip('"')
+    enlace = viaje.find('a')['href']
     if "https" in enlace:
         url= enlace
     else:
@@ -53,7 +53,11 @@ def url_y_opciones_viajes(pais, viaje,diccionario_opciones):
             #print(nombre_viaje)
             col_lg_9_elements = viaje.select('.col-lg-9')
             for opcion in col_lg_9_elements:
-                url_opcion = URL_ESCRAPEO_CORTA + enlace.replace("opciones","").replace('paquetes','viaje') + opcion.get_text(strip=True).replace(" ","-")
+                enlace_opcion = opcion.find('a')['href']
+                if "https" in enlace_opcion:
+                    url_opcion=enlace_opcion
+                else:
+                    url_opcion = URL_ESCRAPEO_CORTA + opcion.find('a')['href']
                 opcion=opcion.get_text(strip=True)
                 #print(salida)
                 diccionario_opciones["pais"].append(pais)
@@ -174,3 +178,10 @@ def extraccion_datos_api():
         print("Archivo descargado correctamente.")
     else:
         print(f"Error en la descarga. Código de estado: {respuesta.status_code}")
+
+# Indicar en una nueva columna si aparece en el último escrapeo
+def disponible_ultimo_escrapeo (valor, df, columna):
+    if valor in df[columna].to_list():
+        return "Si"
+    else:
+        return "No"
