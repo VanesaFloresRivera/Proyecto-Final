@@ -185,3 +185,14 @@ def disponible_ultimo_escrapeo (valor, df, columna):
         return "Si"
     else:
         return "No"
+    
+def guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO, df_escrapeado, nombre_df_combinado, columna_union):
+    ARCHIVO_GUARDAR_ESCRAPEO = os.getenv(f"{ARCHIVO_GUARDAR_ESCRAPEO}")
+    if os.path.exists(ARCHIVO_GUARDAR_ESCRAPEO): #comprueba si existe un fichero ya con destinos
+        df_existente = pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO) #en caso de existir lo importa
+        nombre_df_combinado = pd.concat([df_existente,df_escrapeado], ignore_index=True) #combina el fichero anterior con el nuevo obtenido en el escrapeo
+    else:
+        nombre_df_combinado =df_escrapeado #si no existe fichero previo, entonces, crea uno con el obtenido en el escrapeo
+    nombre_df_combinado["en_ultimo_escrapeo"] = nombre_df_combinado[columna_union].apply(lambda x: ex.disponible_ultimo_escrapeo(x, df_escrapeado, columna_union))
+    nombre_df_combinado= nombre_df_combinado.drop_duplicates()
+    nombre_df_combinado.to_pickle(ARCHIVO_GUARDAR_ESCRAPEO) #guarda el fichero en formato formato pickle 
