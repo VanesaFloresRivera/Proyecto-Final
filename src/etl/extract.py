@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
-from src.etl import extract as ex
+import extract as ex ## con jupyter sería from src.etl import extract as ex
 
 def crear_sopa(url):
     res_pais=rq.get(url)# Accedemos a la url
@@ -175,10 +175,11 @@ def extraccion_datos_api():
     if respuesta.status_code == 200:
         with open(ruta_destino, 'wb') as f:
             f.write(respuesta.content)
-        print("Archivo descargado correctamente.")
+        print("Archivo de la api con el turismo emisor de España descargado y guardado correctamente.")
     else:
         print(f"Error en la descarga. Código de estado: {respuesta.status_code}")
-
+    print("LA EXTRACCIÓN DE LA API HA FINALIZADO")
+    
 # Indicar en una nueva columna si aparece en el último escrapeo
 def disponible_ultimo_escrapeo (valor, df, columna):
     if valor in df[columna].to_list():
@@ -186,13 +187,46 @@ def disponible_ultimo_escrapeo (valor, df, columna):
     else:
         return "No"
     
-def guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO, df_escrapeado, nombre_df_combinado, columna_union):
-    ARCHIVO_GUARDAR_ESCRAPEO = os.getenv(f"{ARCHIVO_GUARDAR_ESCRAPEO}")
+def guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO, df_escrapeado, columna_union):
     if os.path.exists(ARCHIVO_GUARDAR_ESCRAPEO): #comprueba si existe un fichero ya con destinos
         df_existente = pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO) #en caso de existir lo importa
-        nombre_df_combinado = pd.concat([df_existente,df_escrapeado], ignore_index=True) #combina el fichero anterior con el nuevo obtenido en el escrapeo
+        df_combinado = pd.concat([df_existente,df_escrapeado], ignore_index=True) #combina el fichero anterior con el nuevo obtenido en el escrapeo
     else:
-        nombre_df_combinado =df_escrapeado #si no existe fichero previo, entonces, crea uno con el obtenido en el escrapeo
-    nombre_df_combinado["en_ultimo_escrapeo"] = nombre_df_combinado[columna_union].apply(lambda x: ex.disponible_ultimo_escrapeo(x, df_escrapeado, columna_union))
-    nombre_df_combinado= nombre_df_combinado.drop_duplicates()
-    nombre_df_combinado.to_pickle(ARCHIVO_GUARDAR_ESCRAPEO) #guarda el fichero en formato formato pickle 
+        df_combinado =df_escrapeado #si no existe fichero previo, entonces, crea uno con el obtenido en el escrapeo
+    df_combinado["en_ultimo_escrapeo"] = df_combinado[columna_union].apply(lambda x: ex.disponible_ultimo_escrapeo(x, df_escrapeado, columna_union))
+    df_combinado= df_combinado.drop_duplicates()
+    df_combinado.to_pickle(ARCHIVO_GUARDAR_ESCRAPEO) #guarda el fichero en formato formato pickle 
+    return df_combinado
+
+def escrapeo_total ():
+    load_dotenv()
+    RUTA_SERVICE = os.getenv("RUTA_SERVICE")
+    URL_ESCRAPEO_INICIAL = os.getenv("URL_ESCRAPEO_INICIAL")
+
+    url_destinos= URL_ESCRAPEO_INICIAL #url destinos totales
+    sopa_destinos = ex.crear_sopa(url_destinos) #creamos la sopa
+
+    df_destinos_totales = ex.extracción_destinos_con_url(sopa_destinos) #escrapeo los destinos totales
+
+    #añado los destinos actuales a los destinos anteriores y guardo el DF con los destinos totales acumulados
+    ARCHIVO_GUARDAR_ESCRAPEO_DESTINOS = os.getenv("ARCHIVO_GUARDAR_ESCRAPEO_DESTINOS")
+    df_combinado_destinos= ex.guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO_DESTINOS,df_destinos_totales, "nombre_pais")
+    print(f'El fichero con todos los destinos acumulados ha sido actualizado con {df_destinos_totales.shape[0]} destinos. Existen un total de {df_combinado_destinos.shape[0]} destinos')
+
+    df_viajes_totales_destinos, df_continentes, df_opciones = ex.continentes_viajes_totales_destinos_url_y_opciones_1(df_destinos_totales) #escrapeo el resto de información
+
+    #añado los viajes actuales a los viajes anteriores y guardo el DF con los viajes totales de todos los destinos acumulados
+    ARCHIVO_GUARDAR_ESCRAPEO_VIAJES = os.getenv("ARCHIVO_GUARDAR_ESCRAPEO_VIAJES")
+    df_combinado_viajes_totales= ex.guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO_VIAJES,df_viajes_totales_destinos, "url")
+    print(f'El fichero con todos los viajes acumulados ha sido actualizado con {df_viajes_totales_destinos.shape[0]} viajes. Existen un total de {df_combinado_viajes_totales.shape[0]} viajes')
+
+    #añado los continentes actuales a los continentes anteriores y guardo el DF con los continentes totales de todos los destinos acumulados
+    ARCHIVO_GUARDAR_CONTINENTES = os.getenv("ARCHIVO_GUARDAR_CONTINENTES")
+    df_combinado_continentes= ex.guardar_escrapeo(ARCHIVO_GUARDAR_CONTINENTES,df_continentes, "continente")
+    print(f'El fichero con todos los continentes acumulados ha sido actualizado con {df_continentes.shape[0]} continentes. Existen un total de {df_combinado_continentes.shape[0]} continentes')
+
+    #añado las opciones actuales a las opciones anteriores y guardo el DF con las opciones totales de todos los destinos acumulados
+    ARCHIVO_GUARDAR_OPCIONES_VIAJES = os.getenv("ARCHIVO_GUARDAR_OPCIONES_VIAJES")
+    df_combinado_opciones_viajes= ex.guardar_escrapeo(ARCHIVO_GUARDAR_OPCIONES_VIAJES,df_opciones, "url_opcion")
+    print(f'El fichero con todos las opciones acumuladas ha sido actualizado con {df_opciones.shape[0]} opciones. Existen un total de {df_combinado_opciones_viajes.shape[0]} opciones ')
+    print("EL ESCRAPEO HA FINALIZADO")
