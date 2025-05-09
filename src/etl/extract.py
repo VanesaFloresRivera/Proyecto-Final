@@ -9,7 +9,8 @@ import time
 from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
-import extract as ex ## con jupyter sería from src.etl import extract as ex
+from src.etl import extract as ex #con jupyter
+#import extract as ex ## con main.py
 
 def crear_sopa(url):
     res_pais=rq.get(url)# Accedemos a la url
@@ -77,6 +78,58 @@ def url_y_opciones_viajes(pais, viaje,diccionario_opciones):
     return url, df_opciones
 
 
+def url_y_opciones_viajes_1(pais, viaje,diccionario_opciones_detallado, diccionario_url_opcion_nombre_opcion):
+    URL_ESCRAPEO_CORTA=os.getenv("URL_ESCRAPEO_CORTA")
+    enlace = viaje.find('a')['href']
+    if "https" in enlace:
+        url= enlace
+    else:
+        if "opciones" in enlace:
+            enlace = enlace.split('"')[0]
+            url = URL_ESCRAPEO_CORTA+enlace
+            #print(enlace)
+            nombre_viaje=viaje.find("div", {"class": "product-card-text-title"}).get_text().replace("\n","").rstrip(" ")
+            #print(nombre_viaje)
+            col_lg_9_elements = viaje.select('.col-lg-9')
+            for opcion in col_lg_9_elements:
+                enlace_opcion = opcion.find('a')['href']
+                if "https" in enlace_opcion:
+                    url_opcion=enlace_opcion
+                else:
+                    url_opcion = URL_ESCRAPEO_CORTA + opcion.find('a')['href']
+                opcion=opcion.get_text(strip=True)
+                diccionario_url_opcion_nombre_opcion["nombre_opcion"].append(opcion)
+                diccionario_url_opcion_nombre_opcion["url_opcion"].append(url_opcion)
+            sopa_opcion=ex.crear_sopa(url)
+            clase_product_card_opcion=sopa_opcion.find_all("div", {"class":"product-card"})
+            for viaje_opcion in clase_product_card_opcion:
+                enlace = viaje_opcion.find('a')['href']
+                if "https" in enlace:
+                    url_opcion= enlace
+                else:
+                    url_opcion = URL_ESCRAPEO_CORTA+enlace
+                nombre_viaje_opcion=viaje_opcion.find("div", {"class": "product-card-text-title"}).get_text().replace("\n","").rstrip(" ")
+                duracion_viaje=viaje_opcion.find("div", {"class": "product-card-text-duration"}).get_text().replace("\n","").rstrip(" ")
+                itinerario = viaje_opcion.find("div", {"class": "product-card-text-description"}).get_text().replace("\n","").rstrip(" ").lstrip("Itinerario: ")
+                precio = int(viaje_opcion.find("div", {"class": "product-card-footer"}).get_text().replace("\n","").rstrip(" ").lstrip("desde ").split('€')[0].replace(".",""))
+                diccionario_opciones_detallado["pais"].append(pais)
+                diccionario_opciones_detallado["nombre_viaje"].append(nombre_viaje)
+                diccionario_opciones_detallado["url_viaje"].append(url)
+                diccionario_opciones_detallado["nombre_viaje_opcion"].append(nombre_viaje_opcion)
+                diccionario_opciones_detallado["duracion_viaje"].append(duracion_viaje)
+                diccionario_opciones_detallado["itinerario"].append(itinerario)
+                diccionario_opciones_detallado["precio"].append(precio)
+                diccionario_opciones_detallado["url_viaje_opcion"].append(url_opcion)
+            col_lg_9_elements = viaje.select('.col-lg-9')
+        else:
+            enlace=enlace
+        url = URL_ESCRAPEO_CORTA+enlace
+    #print("ENLACE EXTRAIDO")
+    #print(enlace)
+    df_opciones = pd.DataFrame(diccionario_opciones_detallado)
+    df_opciones_url_nombre_opcion= pd.DataFrame(diccionario_url_opcion_nombre_opcion)
+    return url, df_opciones, df_opciones_url_nombre_opcion
+
 def escrapeo_viajes_paises_con_url (pais, clase, diccionario,diccionario_opciones):
     for viaje in clase:
         nombre_viaje=viaje.find("div", {"class": "product-card-text-title"}).get_text().replace("\n","").rstrip(" ")
@@ -96,11 +149,29 @@ def escrapeo_viajes_paises_con_url (pais, clase, diccionario,diccionario_opcione
         diccionario["url"].append(url_viaje)
     return diccionario, df_opciones
 
+def escrapeo_viajes_paises_con_url_1 (pais, clase, diccionario,diccionario_opciones_detallado,diccionario_url_opcion_nombre_opcion):
+    for viaje in clase:
+        nombre_viaje=viaje.find("div", {"class": "product-card-text-title"}).get_text().replace("\n","").rstrip(" ")
+        #print(nombre_viaje)
+        duracion_viaje=viaje.find("div", {"class": "product-card-text-duration"}).get_text().replace("\n","").rstrip(" ")
+        #print(duracion_viaje)
+        itinerario = viaje.find("div", {"class": "product-card-text-description"}).get_text().replace("\n","").rstrip(" ").lstrip("Itinerario: ")
+        #print(itinerario)
+        precio = int(viaje.find("div", {"class": "product-card-footer"}).get_text().replace("\n","").rstrip(" ").lstrip("desde ").split('€')[0].replace(".",""))
+        #print(precio)
+        url_viaje, df_opciones, df_opciones_url_nombre_opcion = ex.url_y_opciones_viajes_1(pais, viaje,diccionario_opciones_detallado, diccionario_url_opcion_nombre_opcion)
+        diccionario["pais"].append(pais)
+        diccionario["nombre_viaje"].append(nombre_viaje)
+        diccionario["duracion_viaje"].append(duracion_viaje)
+        diccionario["itinerario"].append(itinerario)
+        diccionario["precio"].append(precio)
+        diccionario["url"].append(url_viaje)
+    return diccionario, df_opciones, df_opciones_url_nombre_opcion
 
 def continentes_viajes_totales_destinos_url_y_opciones_1(df_destinos_totales):
     dictio_scrap_1 = {"pais": [],
                                     "nombre_viaje": [],
-                                    "duracion_viaje":[],
+                                    "duracion_viaje":[],               
                                     "itinerario":[],
                                     "precio": [],
                                     "url":[],
@@ -109,7 +180,7 @@ def continentes_viajes_totales_destinos_url_y_opciones_1(df_destinos_totales):
                                     "pais": [],
                                     "fecha_escrapeo": datetime.now().date()}
     dictio_scrap_opciones = {"pais":[],
-                                    "nombre_viaje": [],
+                                    "nombre_viaje": [],               
                                     "opcion":[],
                                     "precio": [],
                                     "url_opcion" :[],
@@ -133,6 +204,49 @@ def continentes_viajes_totales_destinos_url_y_opciones_1(df_destinos_totales):
     df_opciones['fecha_escrapeo']=pd.to_datetime(df_opciones['fecha_escrapeo'], errors="coerce")
     return df_viajes_totales_destinos, df_continentes, df_opciones
 
+def continentes_viajes_totales_destinos_url_y_opciones_2(df_destinos_totales):
+    dictio_scrap_1 = {"pais": [],
+                                    "nombre_viaje": [],
+                                    "duracion_viaje":[],
+                                    "itinerario":[],
+                                    "precio": [],
+                                    "url":[],
+                                    "fecha_escrapeo": datetime.now().date()}
+    diccionario_continente = {"continente": [],
+                                    "pais": [],
+                                    "fecha_escrapeo": datetime.now().date()}
+    dictio_scrap_opciones = {"pais":[],
+                                    "nombre_viaje": [],
+                                    "url_viaje":[],
+                                    "nombre_viaje_opcion":[],                   
+                                    "duracion_viaje":[],                                    
+                                    "itinerario":[],
+                                    "precio": [],
+                                    'url_viaje_opcion':[],
+                                    "fecha_escrapeo": datetime.now().date()}
+    dictio_scrap_urlopcion_nombreopcion = {"nombre_opcion":[],
+                                    "url_viaje_opcion" :[],
+                                    "fecha_escrapeo": datetime.now().date()}
+    for pais,url in zip(df_destinos_totales["nombre_pais"], df_destinos_totales["url_destino"]):
+        sopa_pais= ex.crear_sopa(url)
+        clase_hot_pag2_alp_tit=sopa_pais.find_all("div", {"class":"hot-page2-alp-tit"})  #Vamos a extraer todas los contenidos de la clase hot-page2-alp-tit
+        continente= clase_hot_pag2_alp_tit[0].get_text().strip("\n").split("-")[0]
+        diccionario_continente["pais"].append(pais)
+        diccionario_continente["continente"].append(continente)
+        clase_product_card=sopa_pais.find_all("div", {"class":"product-card"})  #Vamos a extraer todas los contenidos de la clase product-card
+        ex.escrapeo_viajes_paises_con_url_1(pais, clase_product_card, dictio_scrap_1, dictio_scrap_opciones, dictio_scrap_urlopcion_nombreopcion)
+        print(f' Para {pais} en {continente} se ha encontrado {len(clase_product_card)} viajes diferentes')
+        #print(dictio_scrap_opciones)
+    print("El escrapeo ha finalizado, la extracción de la información de todos los destinos ha sido obtenida")
+    df_viajes_totales_destinos = pd.DataFrame(dictio_scrap_1)
+    df_viajes_totales_destinos['fecha_escrapeo']=pd.to_datetime(df_viajes_totales_destinos['fecha_escrapeo'], errors="coerce")
+    df_continentes = pd.DataFrame(diccionario_continente)
+    df_continentes['fecha_escrapeo']=pd.to_datetime(df_continentes['fecha_escrapeo'], errors="coerce")
+    df_opciones = pd.DataFrame(dictio_scrap_opciones)
+    df_opciones_url_nombre_opcion = pd.DataFrame(dictio_scrap_urlopcion_nombreopcion)
+    df_opciones['fecha_escrapeo']=pd.to_datetime(df_opciones['fecha_escrapeo'], errors="coerce")
+    ex.incorporar_información_df_original(df_opciones, df_opciones_url_nombre_opcion, 'url_viaje_opcion', 'nombre_opcion', 'opcion')
+    return df_viajes_totales_destinos, df_continentes, df_opciones, df_opciones_url_nombre_opcion
 
 def incorporar_información_df_original (dataframe_a_rellenar, df_valores_correctos, columna_union, columna_valores_correctos, columna_a_rellenar, filtro_df_original=None):
     """
