@@ -9,8 +9,8 @@ import time
 from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
-from src.etl import extract as ex #con jupyter
-#import extract as ex ## con main.py
+#from src.etl import extract as ex #con jupyter
+import extract as ex ## con main.py
 
 def crear_sopa(url):
     res_pais=rq.get(url)# Accedemos a la url
@@ -99,15 +99,15 @@ def url_y_opciones_viajes_1(pais, viaje,diccionario_opciones_detallado, dicciona
                     url_opcion = URL_ESCRAPEO_CORTA + opcion.find('a')['href']
                 opcion=opcion.get_text(strip=True)
                 diccionario_url_opcion_nombre_opcion["nombre_opcion"].append(opcion)
-                diccionario_url_opcion_nombre_opcion["url_opcion"].append(url_opcion)
+                diccionario_url_opcion_nombre_opcion["url_viaje_opcion"].append(url_opcion)
             sopa_opcion=ex.crear_sopa(url)
             clase_product_card_opcion=sopa_opcion.find_all("div", {"class":"product-card"})
             for viaje_opcion in clase_product_card_opcion:
-                enlace = viaje_opcion.find('a')['href']
-                if "https" in enlace:
-                    url_opcion= enlace
+                enlace_opcion_detalle = viaje_opcion.find('a')['href']
+                if "https" in enlace_opcion_detalle:
+                    url_opcion= enlace_opcion_detalle
                 else:
-                    url_opcion = URL_ESCRAPEO_CORTA+enlace
+                    url_opcion = URL_ESCRAPEO_CORTA+enlace_opcion_detalle
                 nombre_viaje_opcion=viaje_opcion.find("div", {"class": "product-card-text-title"}).get_text().replace("\n","").rstrip(" ")
                 duracion_viaje=viaje_opcion.find("div", {"class": "product-card-text-duration"}).get_text().replace("\n","").rstrip(" ")
                 itinerario = viaje_opcion.find("div", {"class": "product-card-text-description"}).get_text().replace("\n","").rstrip(" ").lstrip("Itinerario: ")
@@ -120,7 +120,6 @@ def url_y_opciones_viajes_1(pais, viaje,diccionario_opciones_detallado, dicciona
                 diccionario_opciones_detallado["itinerario"].append(itinerario)
                 diccionario_opciones_detallado["precio"].append(precio)
                 diccionario_opciones_detallado["url_viaje_opcion"].append(url_opcion)
-            col_lg_9_elements = viaje.select('.col-lg-9')
         else:
             enlace=enlace
         url = URL_ESCRAPEO_CORTA+enlace
@@ -245,8 +244,10 @@ def continentes_viajes_totales_destinos_url_y_opciones_2(df_destinos_totales):
     df_opciones = pd.DataFrame(dictio_scrap_opciones)
     df_opciones_url_nombre_opcion = pd.DataFrame(dictio_scrap_urlopcion_nombreopcion)
     df_opciones['fecha_escrapeo']=pd.to_datetime(df_opciones['fecha_escrapeo'], errors="coerce")
+    df_opciones["opcion"]=None
     ex.incorporar_información_df_original(df_opciones, df_opciones_url_nombre_opcion, 'url_viaje_opcion', 'nombre_opcion', 'opcion')
-    return df_viajes_totales_destinos, df_continentes, df_opciones, df_opciones_url_nombre_opcion
+    return df_viajes_totales_destinos, df_continentes, df_opciones
+
 
 def incorporar_información_df_original (dataframe_a_rellenar, df_valores_correctos, columna_union, columna_valores_correctos, columna_a_rellenar, filtro_df_original=None):
     """
@@ -293,14 +294,15 @@ def extraccion_datos_api():
     else:
         print(f"Error en la descarga. Código de estado: {respuesta.status_code}")
     print("LA EXTRACCIÓN DE LA API HA FINALIZADO")
-    
+   
 # Indicar en una nueva columna si aparece en el último escrapeo
 def disponible_ultimo_escrapeo (valor, df, columna):
     if valor in df[columna].to_list():
         return "Si"
     else:
         return "No"
-    
+
+
 def guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO, df_escrapeado, columna_union):
     if os.path.exists(ARCHIVO_GUARDAR_ESCRAPEO): #comprueba si existe un fichero ya con destinos
         df_existente = pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO) #en caso de existir lo importa
@@ -327,7 +329,7 @@ def escrapeo_total ():
     df_combinado_destinos= ex.guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO_DESTINOS,df_destinos_totales, "nombre_pais")
     print(f'El fichero con todos los destinos acumulados ha sido actualizado con {df_destinos_totales.shape[0]} destinos. Existen un total de {df_combinado_destinos.shape[0]} destinos')
 
-    df_viajes_totales_destinos, df_continentes, df_opciones = ex.continentes_viajes_totales_destinos_url_y_opciones_1(df_destinos_totales) #escrapeo el resto de información
+    df_viajes_totales_destinos, df_continentes, df_opciones = ex.continentes_viajes_totales_destinos_url_y_opciones_2(df_destinos_totales) #escrapeo el resto de información
 
     #añado los viajes actuales a los viajes anteriores y guardo el DF con los viajes totales de todos los destinos acumulados
     ARCHIVO_GUARDAR_ESCRAPEO_VIAJES = os.getenv("ARCHIVO_GUARDAR_ESCRAPEO_VIAJES")
@@ -341,6 +343,6 @@ def escrapeo_total ():
 
     #añado las opciones actuales a las opciones anteriores y guardo el DF con las opciones totales de todos los destinos acumulados
     ARCHIVO_GUARDAR_OPCIONES_VIAJES = os.getenv("ARCHIVO_GUARDAR_OPCIONES_VIAJES")
-    df_combinado_opciones_viajes= ex.guardar_escrapeo(ARCHIVO_GUARDAR_OPCIONES_VIAJES,df_opciones, "url_opcion")
+    df_combinado_opciones_viajes= ex.guardar_escrapeo(ARCHIVO_GUARDAR_OPCIONES_VIAJES,df_opciones, "url_viaje_opcion")
     print(f'El fichero con todos las opciones acumuladas ha sido actualizado con {df_opciones.shape[0]} opciones. Existen un total de {df_combinado_opciones_viajes.shape[0]} opciones ')
     print("EL ESCRAPEO HA FINALIZADO")
