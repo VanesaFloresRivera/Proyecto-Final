@@ -9,8 +9,8 @@ import time
 from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
-#from src.etl import extract as ex #con jupyter
-import extract as ex ## con main.py
+from src.etl import extract as ex #con jupyter
+#import extract as ex ## con main.py
 
 def crear_sopa(url):
     res_pais=rq.get(url)# Accedemos a la url
@@ -145,7 +145,7 @@ def escrapeo_viajes_paises_con_url (pais, clase, diccionario,diccionario_opcione
         diccionario["duracion_viaje"].append(duracion_viaje)
         diccionario["itinerario"].append(itinerario)
         diccionario["precio"].append(precio)
-        diccionario["url"].append(url_viaje)
+        diccionario["url_viaje"].append(url_viaje)
     return diccionario, df_opciones
 
 def escrapeo_viajes_paises_con_url_1 (pais, clase, diccionario,diccionario_opciones_detallado,diccionario_url_opcion_nombre_opcion):
@@ -164,7 +164,7 @@ def escrapeo_viajes_paises_con_url_1 (pais, clase, diccionario,diccionario_opcio
         diccionario["duracion_viaje"].append(duracion_viaje)
         diccionario["itinerario"].append(itinerario)
         diccionario["precio"].append(precio)
-        diccionario["url"].append(url_viaje)
+        diccionario["url_viaje"].append(url_viaje)
     return diccionario, df_opciones, df_opciones_url_nombre_opcion
 
 def continentes_viajes_totales_destinos_url_y_opciones_1(df_destinos_totales):
@@ -173,7 +173,7 @@ def continentes_viajes_totales_destinos_url_y_opciones_1(df_destinos_totales):
                                     "duracion_viaje":[],               
                                     "itinerario":[],
                                     "precio": [],
-                                    "url":[],
+                                    "url_viaje":[],
                                     "fecha_escrapeo": datetime.now().date()}
     diccionario_continente = {"continente": [],
                                     "pais": [],
@@ -209,7 +209,7 @@ def continentes_viajes_totales_destinos_url_y_opciones_2(df_destinos_totales):
                                     "duracion_viaje":[],
                                     "itinerario":[],
                                     "precio": [],
-                                    "url":[],
+                                    "url_viaje":[],
                                     "fecha_escrapeo": datetime.now().date()}
     diccionario_continente = {"continente": [],
                                     "pais": [],
@@ -249,7 +249,7 @@ def continentes_viajes_totales_destinos_url_y_opciones_2(df_destinos_totales):
     return df_viajes_totales_destinos, df_continentes, df_opciones
 
 
-def incorporar_información_df_original (dataframe_a_rellenar, df_valores_correctos, columna_union, columna_valores_correctos, columna_a_rellenar, filtro_df_original=None):
+def incorporar_información_df_original (dataframe_a_rellenar, df_valores_correctos, columna_union, columna_valores_correctos, columna_a_rellenar, filtro_df_a_rellenar=None):
     """
     Completa valores en un DataFrame a partir de otro DataFrame de referencia usando un diccionario de mapeo.
 
@@ -259,7 +259,7 @@ def incorporar_información_df_original (dataframe_a_rellenar, df_valores_correc
         columna_union (str): Nombre de la columna clave utilizada para la unión entre ambos DataFrames.
         columna_valores_correctos (str): Nombre de la columna en 'df_valores_correctos' con los valores a insertar.
         columna_a_rellenar (str): Nombre de la columna en 'dataframe_a_rellenar' donde se colocarán los valores correctos.
-        filtro_df_original (pd.Series, optional): Filtro booleano para aplicar la actualización solo a ciertas filas. 
+        filtro_df_a_rellenar (pd.Series, optional): Filtro booleano para aplicar la actualización solo a ciertas filas. 
                                                   Si es None, se actualizará toda la columna. Default es None.
 
     Returns:
@@ -268,8 +268,8 @@ def incorporar_información_df_original (dataframe_a_rellenar, df_valores_correc
     keys= df_valores_correctos[columna_union].to_list()
     values = df_valores_correctos[columna_valores_correctos].to_list()
     diccionario_creado =dict(zip(keys,values))
-    if filtro_df_original is not None:
-        dataframe_a_rellenar.loc[filtro_df_original,columna_a_rellenar] = dataframe_a_rellenar[columna_union].map(diccionario_creado)
+    if filtro_df_a_rellenar is not None:
+        dataframe_a_rellenar.loc[filtro_df_a_rellenar,columna_a_rellenar] = dataframe_a_rellenar[columna_union].map(diccionario_creado)
     else:
         dataframe_a_rellenar[columna_a_rellenar] = dataframe_a_rellenar[columna_union].map(diccionario_creado)
 
@@ -333,7 +333,7 @@ def escrapeo_total ():
 
     #añado los viajes actuales a los viajes anteriores y guardo el DF con los viajes totales de todos los destinos acumulados
     ARCHIVO_GUARDAR_ESCRAPEO_VIAJES = os.getenv("ARCHIVO_GUARDAR_ESCRAPEO_VIAJES")
-    df_combinado_viajes_totales= ex.guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO_VIAJES,df_viajes_totales_destinos, "url")
+    df_combinado_viajes_totales= ex.guardar_escrapeo(ARCHIVO_GUARDAR_ESCRAPEO_VIAJES,df_viajes_totales_destinos, "url_viaje")
     print(f'El fichero con todos los viajes acumulados ha sido actualizado con {df_viajes_totales_destinos.shape[0]} viajes. Existen un total de {df_combinado_viajes_totales.shape[0]} viajes')
 
     #añado los continentes actuales a los continentes anteriores y guardo el DF con los continentes totales de todos los destinos acumulados
