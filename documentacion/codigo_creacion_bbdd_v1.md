@@ -12,13 +12,13 @@ CREATE TABLE itinerario (
 CREATE TABLE ciudad (
     id_ciudad SERIAL PRIMARY KEY,
     nombre_ciudad TEXT UNIQUE,
-    nombre_pais TEXT 
+    id_pais_destino INT REFERENCES pais_destino(id_pais_destino) ON DELETE CASCADE
 );
 
 CREATE TABLE ciudad_itinerario (
     id_ciudad INT REFERENCES ciudad(id_ciudad) ON DELETE CASCADE,
     id_itinerario INT REFERENCES itinerario(id_itinerario) ON DELETE CASCADE,
-     PRIMARY KEY (id_ciudad, id_itinerario)
+    PRIMARY KEY (id_ciudad, id_itinerario)
 );
 
 CREATE TABLE viaje (

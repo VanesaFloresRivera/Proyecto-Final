@@ -10,7 +10,10 @@ from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
 import extract as ex
+import transform as tr
 
 ex.escrapeo_total() #función para extraer datos mediante escrapeo de la página web
 
 ex.extraccion_datos_api() #función para extraer los datos de la api con el turismo emisor
+
+tr.transformacion_total() #funcion para transformar y limpiar los datos

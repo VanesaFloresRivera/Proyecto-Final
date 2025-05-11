@@ -9,6 +9,11 @@ import time
 from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
+from thefuzz import fuzz
+#from src.etl import transform as tr #con jupyter
+#from src.etl import extract as ex #con jupyter
+import extract as ex ## con main.py
+import transform as tr ## con main.py
 
 
 #funcion para obtener pais, continente, latitud y longitud
@@ -27,3 +32,283 @@ def obtener_pais_continente_lat_long (municipio,API_KEY):
             return 'Información desconocida', 'Información desconocida','Información desconocida','Información desconocida'
     else:
         print("Error de conexión")
+    print(f'Se han obtenido datos de geolocalización de la api')
+
+def limpieza_fichero_turismo_emisor(df_turismo_emisor):
+    indice_otros= df_turismo_emisor[df_turismo_emisor.PAIS_DESTINO.str.contains('Otros')].index.tolist() #elimino los que no indica un pais concreto
+    indice_total=df_turismo_emisor[df_turismo_emisor.PAIS_DESTINO.str.contains('Total')].index.tolist() #elimino los totales
+    indices_eliminar = indice_otros+indice_total #uno ambos indices
+    df_turismo_emisor.drop(indices_eliminar,inplace=True)
+
+    #Reemplazo los valores que al unirlo con el DF de escrapeo da lugar a duplicados:
+    df_turismo_emisor.PAIS_DESTINO= df_turismo_emisor.PAIS_DESTINO.replace(
+    {'Antigua y Barbuda': 'Antigua',
+    'Estados Unidos de América':'Estados Unidos',
+    'Bhután': 'Bután',
+    'Corea':'Corea Del Sur',
+    'Zimbabwe':'Zimbabue'})
+
+    ARCHIVO_GUARDAR_DATOS_API_PROCESADOS=os.getenv('ARCHIVO_GUARDAR_DATOS_API_PROCESADOS')
+    df_turismo_emisor.to_csv(ARCHIVO_GUARDAR_DATOS_API_PROCESADOS) #guardo el fichero
+    print(f'Los datos de turismo emisor han sido procesados y guardados: {len(df_turismo_emisor)}')
+    return df_turismo_emisor
+
+def obtención_continentes_correctos(df_continentes, lista_paises_islas, ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE, API_KEY):
+    if len(lista_paises_islas)>0:
+    #obtengo los datos ya obtenidos de la api de geolocalización
+        df_continentes_correctos_anterior= pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE)
+        df_continentes_correctos_anterior_filtrado=df_continentes_correctos_anterior[df_continentes_correctos_anterior['pais'].notna()]
+        #incorporo la información en la tabla continentes original:
+        ex.incorporar_información_df_original(df_continentes, df_continentes_correctos_anterior_filtrado,
+                                        'pais', 'continente_api', 'continente', 
+                                        df_continentes.continente.isin(['Caribe', 'Oriente Medio', 'Islas Exóticas']))
+        df_continentes_reducido = df_continentes[['continente', 'pais']].drop_duplicates()
+        lista_paises_islas = df_continentes_reducido[df_continentes_reducido.continente.isin(['Caribe', 'Oriente Medio', 'Islas Exóticas'])].pais.tolist()
+        if len(lista_paises_islas)>0:
+            #obtengo los datos de la api
+            df_continentes_correctos = pd.DataFrame()
+            df_continentes_correctos['pais']=lista_paises_islas
+            df_continentes_correctos[['continente_api','pais_api', 'latitud', 'longitud']]=(
+                df_continentes_correctos.apply(lambda fila:pd.Series(
+                    tr.obtener_pais_continente_lat_long(fila['pais'], API_KEY)), axis=1)
+            )
+            #sustituyo los valores dados en Inglés por los valores en Español
+            df_continentes_correctos.continente_api= df_continentes_correctos.continente_api.replace({'North America':'América',
+                                                            'South America': 'América',
+                                                            'Africa': 'África',
+                                                            'Europe': 'Europa',
+                                                            'Oceania':'Oceanía'})
+            ex.incorporar_información_df_original(df_continentes, df_continentes_correctos,
+                                        'pais', 'continente_api', 'continente', 
+                                        df_continentes.continente.isin(['Caribe', 'Oriente Medio', 'Islas Exóticas']))
+            df_continentes_correctos['ciudad']=None
+            df_continentes_agrupado_geolocalizacion_api = pd.concat([df_continentes_correctos_anterior,df_continentes_correctos],axis=0) #uno los 2 DF de la api de geolocalizacion
+        else:
+            df_continentes_agrupado_geolocalizacion_api=df_continentes_correctos_anterior
+        df_continentes_agrupado_geolocalizacion_api.to_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE) #guardo los datos de geolocalización
+        print(f'Los datos de geolocalizacion han sido guardados: {len(df_continentes_agrupado_geolocalizacion_api)}')
+
+    ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS=os.getenv("ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS") #guardo el fichero resultante
+    df_continentes.to_pickle(ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS)
+    print(f'Los datos de los continentes escrapeados procesados han sido guardados: {len(df_continentes)}')
+    return df_continentes_agrupado_geolocalizacion_api, df_continentes
+
+def limpieza_continentes_escrapeados(df_continentes,ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE, API_KEY):
+    df_continentes_reducido = df_continentes[['continente', 'pais']].drop_duplicates() #elimino duplicados
+    #obtengo los paises/islas que están en continentes ficticios:
+    lista_paises_islas = df_continentes_reducido[df_continentes_reducido.continente.isin(['Caribe', 'Oriente Medio', 'Islas Exóticas'])].pais.tolist()
+    df_continentes_agrupado_geolocalizacion_api, df_continentes= tr.obtención_continentes_correctos(df_continentes, lista_paises_islas, ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE, API_KEY)
+    print('La limpieza de los continentes escrapeados ha finalizado')
+    return df_continentes_agrupado_geolocalizacion_api,df_continentes
+
+def correccion_mismonombre_diferenteurl(df_viajes_agrupados):
+    dict_cambios_url= {"nombre_viaje":[],'url_anterior':[], 'url_nueva':[], 'url_anterior_en_ultimo_escrapeo':[], 
+                   'url_nueva_en_ultimo_escrapeo':[]}
+    for viaje in df_viajes_agrupados.nombre_viaje.unique():
+        df_filtrado = df_viajes_agrupados[df_viajes_agrupados.nombre_viaje == viaje] #creo un DF para cada viaje
+        if len(df_filtrado.url_viaje.unique()) >1:
+            url1= df_filtrado.url_viaje.unique()[-2]
+            url2=df_filtrado.url_viaje.unique()[-1]
+            if len(df_filtrado.en_ultimo_escrapeo.unique())>1 and len(df_filtrado.duracion_viaje.unique())==1 and (len(df_filtrado.itinerario.unique()))==1:
+                en_ultimo_escrapeo_anterior = df_filtrado.en_ultimo_escrapeo.unique()[-2]
+                en_ultimo_escrapeo_nuevo = df_filtrado.en_ultimo_escrapeo.unique()[-1]
+                dict_cambios_url['nombre_viaje'].append(viaje)
+                dict_cambios_url['url_anterior'].append(url1)
+                dict_cambios_url['url_nueva'].append(url2)
+                dict_cambios_url['url_anterior_en_ultimo_escrapeo'].append(en_ultimo_escrapeo_anterior)
+                dict_cambios_url['url_nueva_en_ultimo_escrapeo'].append(en_ultimo_escrapeo_nuevo)
+    df_cambios_url = pd.DataFrame(dict_cambios_url)
+    print(f'Los viajes duplicados con urls diferentes han sido actualizados: {len(df_cambios_url)}')
+    return dict_cambios_url,df_cambios_url  
+
+def correccion_duplicados_mismaurl_diferente_nombre(df_viajes_agrupados):
+    dict_cambios_nombre_viaje= {"url_viaje":[],'nombre_anterior':[], 'nombre_nuevo':[]}
+    for url in df_viajes_agrupados.url_viaje.unique():
+        df_filtrado = df_viajes_agrupados[df_viajes_agrupados.url_viaje == url]
+        if len(df_filtrado.nombre_viaje.unique()) >1:
+            #print(url)
+            #print(len(df_filtrado.nombre_viaje.unique()))
+            nombre1= df_filtrado.nombre_viaje.unique()[-2]
+            nombre2=df_filtrado.nombre_viaje.unique()[-1]
+            #print(nombre1)
+            #print(nombre2)
+            dict_cambios_nombre_viaje['url_viaje'].append(url)
+            dict_cambios_nombre_viaje['nombre_anterior'].append(nombre1)
+            dict_cambios_nombre_viaje['nombre_nuevo'].append(nombre2)
+    df_cambios_nombre_viaje = pd.DataFrame(dict_cambios_nombre_viaje)
+    print(f'Los viajes duplicados con nombres diferentes han sido actualizados: {len(df_cambios_nombre_viaje)}')
+    return dict_cambios_nombre_viaje, df_cambios_nombre_viaje
+
+def limpieza_viajes_finales (df_viajes, df_opciones):
+    #elimino los viajes que tienen la palabra opcion ya que luego incorporaré las opciones como viaje
+    indices_viajes_opciones = df_viajes[df_viajes.url_viaje.str.contains('opciones',na=False)].index.tolist()
+    df_viajes=df_viajes.drop(indices_viajes_opciones)
+
+    #creo un df similar para opciones
+    df_viajes_opciones= df_opciones[['pais', 'nombre_viaje_opcion', 'duracion_viaje', 'itinerario', 'precio',
+       'url_viaje_opcion', 'fecha_escrapeo', 'en_ultimo_escrapeo']]
+    df_viajes_opciones = df_viajes_opciones.rename(columns={'nombre_viaje_opcion':'nombre_viaje','url_viaje_opcion':'url_viaje'})
+
+    #agrupo los 2 df:
+    df_viajes_agrupados = pd.concat([df_viajes,df_viajes_opciones],axis=0).reset_index(drop=True)
+
+    #corrijo los viajes duplicados con mismo nombre y distinta url e incorporo la informacion al df de viajes agrupados
+    dict_cambios_url,df_cambios_url = tr.correccion_mismonombre_diferenteurl(df_viajes_agrupados)
+    ex.incorporar_información_df_original(df_viajes_agrupados, df_cambios_url,
+                                      'nombre_viaje', 'url_nueva', 'url_viaje', 
+                                      df_viajes_agrupados.url_viaje.isin(dict_cambios_url['url_anterior']))
+    ex.incorporar_información_df_original(df_viajes_agrupados, df_cambios_url,
+                                      'nombre_viaje', 'url_nueva_en_ultimo_escrapeo', 'en_ultimo_escrapeo', 
+                                      df_viajes_agrupados.url_viaje.isin(dict_cambios_url['url_anterior']))
+    
+    #corrijo duplicados con misma url y diferente nombre df de viajes agrupados e incorporo la informacion al df de viajes agrupados
+    dict_cambios_nombre_viaje, df_cambios_nombre_viaje = tr.correccion_duplicados_mismaurl_diferente_nombre(df_viajes_agrupados)
+    ex.incorporar_información_df_original(df_viajes_agrupados, df_cambios_nombre_viaje,
+                                      'url_viaje', 'nombre_nuevo', 'nombre_viaje', 
+                                      df_viajes_agrupados.nombre_viaje.isin(dict_cambios_nombre_viaje['nombre_anterior']))
+
+    #elimino los que tiene valores nulos en duracion_Viaje y precio, porque no tengo forma de obtenerlo
+    #  ya que son viajes antiguos y las urls ya no están disponibles
+    df_viajes_agrupados=df_viajes_agrupados.dropna().reset_index(drop=True)
+
+    #Limpio la columna itinerario de cara a la futura extracción de las ciudades
+    df_viajes_agrupados.itinerario = df_viajes_agrupados.itinerario.str.replace('.','')
+    #reemplazo los paréntesis y las ' y ' y ' e ' por una coma para dividir todas las ciudades:
+    df_viajes_agrupados['itinerario_modificado_para_dividir'] = df_viajes_agrupados.itinerario.str.replace(r'[\(\)]| y | e ', ',', regex=True)
+
+    #guardo el df resultante, con todos los viajes:
+    ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS=os.getenv('ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS')
+    df_viajes_agrupados.to_pickle(ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS)
+    print(f"Se ha guardado el fichero de viajes totales: {len(df_viajes_agrupados)}")
+    return df_viajes_agrupados
+
+def conversion_itineario_en_lista (valor):
+    valor = valor.split(',')
+    return valor
+
+def asignacion_pais_itinerarios_con_un_pais(df_itinerarios):
+    dict_pais_correcto_itinerario_un_pais = {'itinerario_modificado_para_dividir':[],'lista_itinerario':[], 'pais_correcto':[]}
+    for itinerario_modificado in df_itinerarios.itinerario_modificado_para_dividir.unique().tolist():
+        #print(itinerario)
+        df_filtrado = df_itinerarios[df_itinerarios.itinerario_modificado_para_dividir == itinerario_modificado]
+        #display(df_filtrado)
+        if len(df_filtrado.pais.unique())==1:
+            lista_itinerario = df_filtrado['lista_itinerario'].tolist()[0]
+            dict_pais_correcto_itinerario_un_pais['itinerario_modificado_para_dividir'].append(itinerario_modificado)
+            dict_pais_correcto_itinerario_un_pais['lista_itinerario'].append(lista_itinerario)
+            dict_pais_correcto_itinerario_un_pais['pais_correcto'].append(df_filtrado.pais.unique()[0])
+    df_pais_correcto_itinerario_un_pais=pd.DataFrame(dict_pais_correcto_itinerario_un_pais)
+    return df_pais_correcto_itinerario_un_pais
+
+def division_ciudades (df_pais_correcto_itinerario_a_dividir):
+    #divido las ciudades para asignar el pais a las ciudades:
+    df_pais_correcto_itinerario_ciudad_dividida= df_pais_correcto_itinerario_a_dividir.explode('lista_itinerario') # Explode para deshacer las listas en filas
+    df_pais_correcto_itinerario_ciudad_dividida = df_pais_correcto_itinerario_ciudad_dividida.rename(columns={'lista_itinerario': 'ciudad'}) # Renombro la columna a ciudad
+    df_pais_correcto_itinerario_ciudad_dividida['ciudad'] = df_pais_correcto_itinerario_ciudad_dividida['ciudad'].str.replace(r'\s+', ' ', regex=True).str.strip() #eliminar espacios de delante y duplicados entre dos palabras
+    return df_pais_correcto_itinerario_ciudad_dividida
+
+def asignacion_pais_itinerarios_duplicados_en_paises (df_itinerarios_duplicados_en_paises,
+                                                      API_KEY,ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE):
+    df_itinerarios_duplicados_en_paises=df_itinerarios_duplicados_en_paises.reset_index(drop=True)
+    lista_ciudades_sin_paises = df_itinerarios_duplicados_en_paises[pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto)].ciudad.unique().tolist()
+    if len(lista_ciudades_sin_paises)>0:
+        #obtengo los datos ya obtenidos de la api de geolocalización
+        df_geolocalizacion_correcta_anterior= pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE).reset_index(drop=True)
+        df_geolocalizacion_correcta_anterior_filtrado= df_geolocalizacion_correcta_anterior[df_geolocalizacion_correcta_anterior['ciudad'].notna()]
+        #incorporo la información en la tabla continentes original:
+        ex.incorporar_información_df_original(df_itinerarios_duplicados_en_paises, df_geolocalizacion_correcta_anterior_filtrado,
+                                        'ciudad', 'pais_api', 'pais_correcto',
+                                        pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto))
+        lista_ciudades_sin_paises= df_itinerarios_duplicados_en_paises[pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto)].ciudad.unique().tolist()
+        if len(lista_ciudades_sin_paises)>0:
+            #obtengo los datos de la api
+            df_paises_correctos = pd.DataFrame()
+            df_paises_correctos['ciudad']=lista_ciudades_sin_paises
+            df_paises_correctos[['continente_api','pais_api', 'latitud', 'longitud']]=(
+                df_paises_correctos.apply(lambda fila:pd.Series(
+                    tr.obtener_pais_continente_lat_long(fila['ciudad'], API_KEY)), axis=1))
+            #sustituyo los valores dados en Inglés por los valores en Español
+            df_paises_correctos.continente_api= df_paises_correctos.continente_api.replace({'North America':'América',
+                                                            'South America': 'América',
+                                                            'Africa': 'África',
+                                                            'Europe': 'Europa',
+                                                            'Oceania':'Oceanía'})
+            ex.incorporar_información_df_original(df_itinerarios_duplicados_en_paises, df_paises_correctos,
+                                            'ciudad', 'pais_api', 'pais_correcto', 
+                                            pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto))
+            df_agrupado_geolocalizacion_api = pd.concat([df_geolocalizacion_correcta_anterior,df_paises_correctos],axis=0) #uno los 2 DF de la api de geolocalizacion
+        else:
+            df_agrupado_geolocalizacion_api=df_geolocalizacion_correcta_anterior
+        df_agrupado_geolocalizacion_api.to_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE)
+        df_itinerarios_duplicados_en_paises = df_itinerarios_duplicados_en_paises[['itinerario_modificado_para_dividir','ciudad','pais_correcto']]
+        return df_itinerarios_duplicados_en_paises, df_agrupado_geolocalizacion_api
+
+def desglosar_ciudades_itinerarios (df_viajes_agrupados,df_agrupado_geolocalizacion_api,API_KEY,ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE ):
+    df_itinerarios = df_viajes_agrupados[['pais','itinerario_modificado_para_dividir']].drop_duplicates().reset_index(drop=True) #elimino duplicados
+    df_itinerarios['lista_itinerario']= df_itinerarios.itinerario_modificado_para_dividir.apply(tr.conversion_itineario_en_lista) #separo las ciudades
+    df_pais_correcto_itinerario_un_pais= tr.asignacion_pais_itinerarios_con_un_pais(df_itinerarios) #asignación pais a la ciudad
+    df_pais_correcto_itinerario_ciudad_dividida_un_pais=tr.division_ciudades(df_pais_correcto_itinerario_un_pais) #division de los itinerarios en ciudades
+    print(f'Se ha asignado el pais a las ciudades que están en itinerarios asociados a un pais único:{len(df_pais_correcto_itinerario_ciudad_dividida_un_pais)}')
+
+    df_itinerarios_duplicados_en_paises= df_itinerarios[
+    ~df_itinerarios.itinerario_modificado_para_dividir.isin(df_pais_correcto_itinerario_un_pais.itinerario_modificado_para_dividir.tolist())]
+
+    df_itinerarios_duplicados_en_paises_dividido=tr.division_ciudades(df_itinerarios_duplicados_en_paises) #division de los itinerarios en ciudades
+    df_itinerarios_duplicados_en_paises_dividido['pais_correcto'] = np.nan
+    ex.incorporar_información_df_original(df_itinerarios_duplicados_en_paises_dividido, df_pais_correcto_itinerario_ciudad_dividida_un_pais,'ciudad','pais_correcto', 'pais_correcto', )
+    df_itinerarios_duplicados_en_paises_dividido_completo, df_agrupado_geolocalizacion_api= tr.asignacion_pais_itinerarios_duplicados_en_paises(df_itinerarios_duplicados_en_paises_dividido,
+                                                      API_KEY,ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE)
+    print(f'Se ha asignado el pais a las ciudades que están en itinerarios duplicados: {len(df_itinerarios_duplicados_en_paises_dividido_completo)}')
+    
+    df_itinerario_ciudades_completo = pd.concat([df_pais_correcto_itinerario_ciudad_dividida_un_pais,df_itinerarios_duplicados_en_paises_dividido_completo], axis=0)
+
+    #Reemplazo los valores que al unirlo con el DF de escrapeo da lugar a duplicados:
+    df_itinerario_ciudades_completo.pais_correcto= df_itinerario_ciudades_completo.pais_correcto.replace(
+    {'Estados Unidos de América':'Estados Unidos'})
+    ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS')
+    df_itinerario_ciudades_completo.to_pickle(ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS)
+    print(f'Se ha guardado la informacion de itinerarios y ciudades:{len(df_itinerario_ciudades_completo)} ')
+    return df_itinerario_ciudades_completo
+
+
+
+
+
+def transformacion_total():
+    load_dotenv()
+
+    #importo los df
+    RUTA_SERVICE = os.getenv("RUTA_SERVICE")
+    ARCHIVO_GUARDAR_ESCRAPEO_VIAJES=os.getenv('ARCHIVO_GUARDAR_ESCRAPEO_VIAJES')
+    ARCHIVO_GUARDAR_CONTINENTES = os.getenv('ARCHIVO_GUARDAR_CONTINENTES')
+    ARCHIVO_GUARDAR_OPCIONES_VIAJES =os.getenv('ARCHIVO_GUARDAR_OPCIONES_VIAJES')
+    ARCHIVO_GUARDAR_DATOS_API=os.getenv('ARCHIVO_GUARDAR_DATOS_API')
+    df_continentes = pd.read_pickle(ARCHIVO_GUARDAR_CONTINENTES)
+    df_viajes= pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO_VIAJES)
+    df_opciones = pd.read_pickle(ARCHIVO_GUARDAR_OPCIONES_VIAJES)
+    df_turismo_emisor = pd.read_csv(ARCHIVO_GUARDAR_DATOS_API,delimiter=';',encoding='latin1')
+
+    df_turismo_emisor_procesado= tr.limpieza_fichero_turismo_emisor(df_turismo_emisor) #limpieza fichero turismo emisor
+
+    ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE=os.getenv('ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE')
+
+    API_KEY= os.getenv("API_KEY")
+
+    df_continentes_agrupado_geolocalizacion_api,df_continentes_procesado= tr.limpieza_continentes_escrapeados(
+        df_continentes,ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE, API_KEY) #limpieza continentes escrapeados
+    
+    df_viajes_agrupados= tr.limpieza_viajes_finales(df_viajes, df_opciones)
+
+    df_itinerario_ciudades_completo = tr.desglosar_ciudades_itinerarios(df_viajes_agrupados,df_continentes_agrupado_geolocalizacion_api,API_KEY,ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE )
+
+    print('LA TRANSFORMACION HA FINALIZADO')
+    return df_turismo_emisor_procesado, df_continentes_procesado, df_viajes_agrupados, df_itinerario_ciudades_completo
+
+    
+
+
+
+
+
+
+
