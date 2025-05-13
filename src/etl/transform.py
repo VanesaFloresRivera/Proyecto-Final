@@ -10,10 +10,12 @@ from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
 from thefuzz import fuzz
-#from src.etl import transform as tr #con jupyter
-#from src.etl import extract as ex #con jupyter
-import extract as ex ## con main.py
-import transform as tr ## con main.py
+from src.etl import transform as tr #con jupyter
+from src.etl import extract as ex #con jupyter
+#import extract as ex ## con main.py
+#import transform as tr ## con main.py
+import unicodedata
+import re
 
 
 #funcion para obtener pais, continente, latitud y longitud
@@ -23,16 +25,36 @@ def obtener_pais_continente_lat_long (municipio,API_KEY):
     if response.status_code == 200:
         data = response.json()
         if data['results']:
-            continente = data['results'][0]['components']['continent']
-            pais = data['results'][0]['components']['country']
-            lat =data['results'][0]['geometry']['lat']
-            lon = data['results'][0]['geometry']['lng']
+            # Usamos .get() para acceder de forma segura a las claves
+            continente = data['results'][0]['components'].get('continent', 'Información desconocida')
+            pais = data['results'][0]['components'].get('country', 'Información desconocida')
+            lat = data['results'][0]['geometry'].get('lat', 'Información desconocida')
+            lon = data['results'][0]['geometry'].get('lng', 'Información desconocida')
             return continente,pais, lat, lon 
         else:
             return 'Información desconocida', 'Información desconocida','Información desconocida','Información desconocida'
     else:
         print("Error de conexión")
     print(f'Se han obtenido datos de geolocalización de la api')
+
+def normalizar_texto(x):
+    if isinstance(x, str):
+        # Poner en minúscula
+        x = x.lower()
+        # Quitar tildes y caracteres especiales
+        x = unicodedata.normalize('NFKD', x).encode('ascii', 'ignore').decode('utf-8')
+        # Sustituir espacios múltiples por uno solo
+        x = re.sub(r'\s+', ' ', x)
+        # Quitar espacios al principio y al final
+        x = x.strip()
+    return x
+
+def capitalizar_texto(x):
+    if isinstance(x, str):
+        # Poner en minúscula
+        x = ' '.join([palabra.capitalize() for palabra in x.split()])
+    return x
+
 
 def limpieza_fichero_turismo_emisor(df_turismo_emisor):
     indice_otros= df_turismo_emisor[df_turismo_emisor.PAIS_DESTINO.str.contains('Otros')].index.tolist() #elimino los que no indica un pais concreto
@@ -47,6 +69,12 @@ def limpieza_fichero_turismo_emisor(df_turismo_emisor):
     'Bhután': 'Bután',
     'Corea':'Corea Del Sur',
     'Zimbabwe':'Zimbabue'})
+
+    #normalizo el texto
+    df_turismo_emisor= df_turismo_emisor.map(tr.normalizar_texto)
+    #capitalizo el texto
+    df_turismo_emisor= df_turismo_emisor.map(tr.capitalizar_texto)
+
 
     ARCHIVO_GUARDAR_DATOS_API_PROCESADOS=os.getenv('ARCHIVO_GUARDAR_DATOS_API_PROCESADOS')
     df_turismo_emisor.to_csv(ARCHIVO_GUARDAR_DATOS_API_PROCESADOS) #guardo el fichero
@@ -87,6 +115,12 @@ def obtención_continentes_correctos(df_continentes, lista_paises_islas, ARCHIVO
             df_continentes_agrupado_geolocalizacion_api=df_continentes_correctos_anterior
         df_continentes_agrupado_geolocalizacion_api.to_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE) #guardo los datos de geolocalización
         print(f'Los datos de geolocalizacion han sido guardados: {len(df_continentes_agrupado_geolocalizacion_api)}')
+    
+    #normalizo el texto
+    df_continentes= df_continentes.map(tr.normalizar_texto)
+    #capitalizo el texto
+    df_continentes= df_continentes.map(tr.capitalizar_texto)
+
 
     ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS=os.getenv("ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS") #guardo el fichero resultante
     df_continentes.to_pickle(ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS)
@@ -174,7 +208,12 @@ def limpieza_viajes_finales (df_viajes, df_opciones):
     #Limpio la columna itinerario de cara a la futura extracción de las ciudades
     df_viajes_agrupados.itinerario = df_viajes_agrupados.itinerario.str.replace('.','')
     #reemplazo los paréntesis y las ' y ' y ' e ' por una coma para dividir todas las ciudades:
-    df_viajes_agrupados['itinerario_modificado_para_dividir'] = df_viajes_agrupados.itinerario.str.replace(r'[\(\)]| y | e ', ',', regex=True)
+    df_viajes_agrupados['itinerario_modificado_para_dividir'] = df_viajes_agrupados.itinerario.str.replace(r'[\(\)]| y | e ', ' , ', regex=True)
+
+    #normalizo el texto
+    df_viajes_agrupados= df_viajes_agrupados.map(tr.normalizar_texto)
+    #capitalizo el texto
+    df_viajes_agrupados= df_viajes_agrupados.map(tr.capitalizar_texto)
 
     #guardo el df resultante, con todos los viajes:
     ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS=os.getenv('ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS')
@@ -183,7 +222,8 @@ def limpieza_viajes_finales (df_viajes, df_opciones):
     return df_viajes_agrupados
 
 def conversion_itineario_en_lista (valor):
-    valor = valor.split(',')
+    valor = valor.split(',')  # convertir string en lista, separando por comas
+    valor = [v.strip() for v in valor]  # quitar espacios extra
     return valor
 
 def asignacion_pais_itinerarios_con_un_pais(df_itinerarios):
@@ -265,6 +305,12 @@ def desglosar_ciudades_itinerarios (df_viajes_agrupados,df_agrupado_geolocalizac
     #Reemplazo los valores que al unirlo con el DF de escrapeo da lugar a duplicados:
     df_itinerario_ciudades_completo.pais_correcto= df_itinerario_ciudades_completo.pais_correcto.replace(
     {'Estados Unidos de América':'Estados Unidos'})
+
+    #normalizo el texto
+    df_itinerario_ciudades_completo= df_itinerario_ciudades_completo.map(tr.normalizar_texto)
+    #capitalizo el texto
+    df_itinerario_ciudades_completo= df_itinerario_ciudades_completo.map(tr.capitalizar_texto)
+
     ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS')
     df_itinerario_ciudades_completo.to_pickle(ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS)
     print(f'Se ha guardado la informacion de itinerarios y ciudades:{len(df_itinerario_ciudades_completo)} ')

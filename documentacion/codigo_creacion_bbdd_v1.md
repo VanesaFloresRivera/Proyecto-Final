@@ -6,7 +6,8 @@ CREATE TABLE pais_destino (
 );
 
 CREATE TABLE itinerario (
-    id_itinerario INT PRIMARY KEY
+    id_itinerario SERIAL PRIMARY KEY
+    detalle_itinerario TEXT UNIQUE
 );
 
 CREATE TABLE ciudad (
