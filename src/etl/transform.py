@@ -86,8 +86,9 @@ def normalizar_texto(x):
 
 def capitalizar_texto(x):
     if isinstance(x, str):
-        # Poner en minúscula
-        x = ' '.join([palabra.capitalize() for palabra in x.split()])
+        # Poner en mayúscula
+        #x = ' '.join([palabra.capitalize() for palabra in x.split()])
+        return x.title()
     return x
 
 
@@ -119,14 +120,16 @@ def limpieza_fichero_turismo_emisor(df_turismo_emisor):
 def obtención_continentes_correctos(df_continentes, lista_paises_islas, ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE, API_KEY):
     if len(lista_paises_islas)>0:
     #obtengo los datos ya obtenidos de la api de geolocalización
-        df_continentes_correctos_anterior= pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE)
-        df_continentes_correctos_anterior_filtrado=df_continentes_correctos_anterior[df_continentes_correctos_anterior['pais'].notna()]
-        #incorporo la información en la tabla continentes original:
-        ex.incorporar_información_df_original(df_continentes, df_continentes_correctos_anterior_filtrado,
-                                        'pais', 'continente_api', 'continente', 
-                                        df_continentes.continente.isin(['Caribe', 'Oriente Medio', 'Islas Exóticas']))
-        df_continentes_reducido = df_continentes[['continente', 'pais']].drop_duplicates()
-        lista_paises_islas = df_continentes_reducido[df_continentes_reducido.continente.isin(['Caribe', 'Oriente Medio', 'Islas Exóticas'])].pais.tolist()
+        if os.path.exists(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE):
+            df_continentes_correctos_anterior= pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE)
+        
+            df_continentes_correctos_anterior_filtrado=df_continentes_correctos_anterior[df_continentes_correctos_anterior['pais'].notna()]
+            #incorporo la información en la tabla continentes original:
+            ex.incorporar_información_df_original(df_continentes, df_continentes_correctos_anterior_filtrado,
+                                            'pais', 'continente_api', 'continente', 
+                                            df_continentes.continente.isin(['Caribe', 'Oriente Medio', 'Islas Exóticas']))
+            df_continentes_reducido = df_continentes[['continente', 'pais']].drop_duplicates()
+            lista_paises_islas = df_continentes_reducido[df_continentes_reducido.continente.isin(['Caribe', 'Oriente Medio', 'Islas Exóticas'])].pais.tolist()
         if len(lista_paises_islas)>0:
             #obtengo los datos de la api
             df_continentes_correctos = pd.DataFrame()
@@ -288,13 +291,14 @@ def asignacion_pais_itinerarios_duplicados_en_paises (df_itinerarios_duplicados_
     lista_ciudades_sin_paises = df_itinerarios_duplicados_en_paises[pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto)].ciudad.unique().tolist()
     if len(lista_ciudades_sin_paises)>0:
         #obtengo los datos ya obtenidos de la api de geolocalización
-        df_geolocalizacion_correcta_anterior= pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE).reset_index(drop=True)
-        df_geolocalizacion_correcta_anterior_filtrado= df_geolocalizacion_correcta_anterior[df_geolocalizacion_correcta_anterior['ciudad'].notna()]
-        #incorporo la información en la tabla continentes original:
-        ex.incorporar_información_df_original(df_itinerarios_duplicados_en_paises, df_geolocalizacion_correcta_anterior_filtrado,
-                                        'ciudad', 'pais_api', 'pais_correcto',
-                                        pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto))
-        lista_ciudades_sin_paises= df_itinerarios_duplicados_en_paises[pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto)].ciudad.unique().tolist()
+        if os.path.exists(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE):
+            df_geolocalizacion_correcta_anterior= pd.read_pickle(ARCHIVO_GUARDAR_ESCRAPEO_API_OPENCAGE).reset_index(drop=True)
+            df_geolocalizacion_correcta_anterior_filtrado= df_geolocalizacion_correcta_anterior[df_geolocalizacion_correcta_anterior['ciudad'].notna()]
+            #incorporo la información en la tabla continentes original:
+            ex.incorporar_información_df_original(df_itinerarios_duplicados_en_paises, df_geolocalizacion_correcta_anterior_filtrado,
+                                            'ciudad', 'pais_api', 'pais_correcto',
+                                            pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto))
+            lista_ciudades_sin_paises= df_itinerarios_duplicados_en_paises[pd.isnull(df_itinerarios_duplicados_en_paises.pais_correcto)].ciudad.unique().tolist()
         if len(lista_ciudades_sin_paises)>0:
             #obtengo los datos de la api
             df_paises_correctos = pd.DataFrame()
@@ -353,9 +357,8 @@ def desglosar_ciudades_itinerarios (df_viajes_agrupados,df_agrupado_geolocalizac
 
 
 
-def desglosar_ciudades_itinerarios_2 (df_viajes_agrupados,API_KEY,ARCHIVO_GUARDAR_TOTAL_CIUDADES_API, ARCHIVO_EXTRACCION_API_DUPLICADOS  ):
+def desglosar_ciudades_itinerarios_2 (df_viajes_agrupados,API_KEY,ARCHIVO_GUARDAR_TOTAL_CIUDADES_API, ARCHIVO_EXTRACCION_API_DUPLICADOS):
     df_itinerarios = df_viajes_agrupados[['pais','itinerario_modificado_para_dividir']].drop_duplicates().reset_index(drop=True) #elimino duplicados
-
     df_itinerarios['lista_itinerario']= df_itinerarios.itinerario_modificado_para_dividir.apply(tr.conversion_itineario_en_lista) #separo las ciudades
     df_itinerarios_ciudades = df_itinerarios.explode('lista_itinerario').reset_index(drop=True) #divido el DF por ciudades
     df_itinerarios_ciudades=df_itinerarios_ciudades.rename(columns={'lista_itinerario':'ciudad'}) #renombro la columna a ciudad
@@ -370,6 +373,12 @@ def desglosar_ciudades_itinerarios_2 (df_viajes_agrupados,API_KEY,ARCHIVO_GUARDA
     df_itinerarios_ciudades= df_itinerarios_ciudades.drop(indices_sin_ciudades).reset_index(drop=True)
     #obtengo los datos de la api extraidos anteriormente
     df_paises_api_todas_ciudades= pd.read_pickle(ARCHIVO_GUARDAR_TOTAL_CIUDADES_API)# '../data/data_raw/geolocalizacion_api_total_ciudades.pkl'
+
+    #normalizo el texto
+    df_paises_api_todas_ciudades= df_paises_api_todas_ciudades.map(tr.normalizar_texto)
+    #capitalizo el texto
+    df_paises_api_todas_ciudades= df_paises_api_todas_ciudades.map(tr.capitalizar_texto)
+
     df_itinerarios_ciudades['pais_api']=None #creo la columna pais_api para incorporar la información de la api
     ex.incorporar_información_df_original(df_itinerarios_ciudades,df_paises_api_todas_ciudades,'ciudad', 'pais_api', 'pais_api')
     df_itinerarios_ciudades_sin_lista = df_itinerarios_ciudades[['pais', 'ciudad', 'pais_api']] # me quedo solo con pais, ciudad y pais api
@@ -385,6 +394,7 @@ def desglosar_ciudades_itinerarios_2 (df_viajes_agrupados,API_KEY,ARCHIVO_GUARDA
 
     #creo DF con los paises correctos  (pais viaje = pais api):
     df_itinerarios_ciudades_sin_lista_paises_correctos = df_itinerarios_ciudades_sin_lista[df_itinerarios_ciudades_sin_lista.resultado=='Pais correcto']
+    print(f'{len(df_itinerarios_ciudades_sin_lista_paises_correctos)} paises correctos')
     #creo una lista de ciudades con paises correctas para añadir la información al DF
     lista_ciudades_pais_correcto = df_itinerarios_ciudades_sin_lista_paises_correctos['ciudad'].unique().tolist()
     
@@ -401,34 +411,38 @@ def desglosar_ciudades_itinerarios_2 (df_viajes_agrupados,API_KEY,ARCHIVO_GUARDA
                                           'ciudad','pais','pais_final',df_itinerarios_ciudades_sin_lista.resultado_2=='Pais_correcto_identificado')
     print(f'Se ha asignado el pais a las ciudades cuyo pais de la api de la ciudad coincide con el pais del viaje: {len(lista_ciudades_pais_correcto)}')
 
+
     #me quedo con la parte del DF que hay que identificar por API:
     df_itinerarios_a_identificar_por_api =df_itinerarios_ciudades_sin_lista[df_itinerarios_ciudades_sin_lista.resultado_2=='Pais a identificar por API']
 
-    #importo el df con los datos extraidos de la api anteriormente
+    #importo el df con los datos extraidos de la api anteriormente:
     df_paises_api_ciudades_duplicadas= pd.read_pickle(ARCHIVO_EXTRACCION_API_DUPLICADOS)
-    ex.df_itinerarios_ciudades_sin_lista(df_itinerarios_ciudades_sin_lista, df_paises_api_ciudades_duplicadas,
+    ex.incorporar_información_df_original(df_itinerarios_ciudades_sin_lista, df_paises_api_ciudades_duplicadas,
                                             'ciudad', 'pais_api', 'pais_final', 
                                             df_itinerarios_ciudades_sin_lista.resultado_2=='Pais a identificar por API')
-    
+    print(f'Se ha asignado el pais a las ciudades cuyo pais de la api de la ciudad no coincide con el pais del viaje: {len(df_paises_api_ciudades_duplicadas)}')
+
     #me quedo con la parte del DF que hay que identificar por API final:
     df_itinerarios_a_identificar_por_api = df_itinerarios_ciudades_sin_lista[pd.isnull(df_itinerarios_ciudades_sin_lista.pais_final)]
 
     #Extraigo los datos de la API:
-    df_pais_ciudad_api_sin_duplicados = pd.DataFrame()
-    df_pais_ciudad_api_sin_duplicados[['pais','ciudad']]=df_itinerarios_a_identificar_por_api[['pais','ciudad']]
-    df_itinerarios_ciudades_sin_duplicados= df_pais_ciudad_api_sin_duplicados.drop_duplicates()
-    df_itinerarios_ciudades_sin_duplicados[['continente_api','pais_api', 'latitud', 'longitud','resultado']]=(
-        df_itinerarios_ciudades_sin_duplicados.apply(lambda fila:pd.Series(
-            tr.obtener_pais_continente_lat_long_con_pais(fila['ciudad'],fila['pais'], API_KEY)), axis=1))
-    print(f'Se ha extraido la informacion de: {len(df_itinerarios_ciudades_sin_duplicados)} ciudades de la API')
+    if len(df_itinerarios_a_identificar_por_api)>0:
+        print(len(df_itinerarios_a_identificar_por_api))
+        df_pais_ciudad_api_sin_duplicados = pd.DataFrame()
+        df_pais_ciudad_api_sin_duplicados[['pais','ciudad']]=df_itinerarios_a_identificar_por_api[['pais','ciudad']]
+        df_itinerarios_ciudades_sin_duplicados= df_pais_ciudad_api_sin_duplicados.drop_duplicates()
+        df_itinerarios_ciudades_sin_duplicados[['continente_api','pais_api', 'latitud', 'longitud','resultado']]=(
+            df_itinerarios_ciudades_sin_duplicados.apply(lambda fila:pd.Series(
+                tr.obtener_pais_continente_lat_long_con_pais(fila['ciudad'],fila['pais'], API_KEY)), axis=1))
+        print(f'Se ha extraido la informacion de: {len(df_itinerarios_ciudades_sin_duplicados)} ciudades de la API')
 
-    df_itinerarios_a_identificar_por_api_nuevo = pd.concat([df_paises_api_ciudades_duplicadas,df_pais_ciudad_api_sin_duplicados], axis=0)
-    df_itinerarios_a_identificar_por_api_nuevo.to_pickle(ARCHIVO_EXTRACCION_API_DUPLICADOS)
+        df_itinerarios_a_identificar_por_api_nuevo = pd.concat([df_paises_api_ciudades_duplicadas,df_pais_ciudad_api_sin_duplicados], axis=0)
+        df_itinerarios_a_identificar_por_api_nuevo.to_pickle(ARCHIVO_EXTRACCION_API_DUPLICADOS)
     
-    ex.incorporar_información_df_original(df_itinerarios_ciudades_sin_lista,
-                                          df_pais_ciudad_api_sin_duplicados,'ciudad','pais_api','pais_final',
-                                          pd.isnull(df_itinerarios_ciudades_sin_lista.pais_final))
-    print(f'Se ha asignado el pais a las ciudades con la información extraida de la API:{len(df_pais_ciudad_api_sin_duplicados)}')
+        ex.incorporar_información_df_original(df_itinerarios_ciudades_sin_lista,
+                                            df_pais_ciudad_api_sin_duplicados,'ciudad','pais_api','pais_final',
+                                            pd.isnull(df_itinerarios_ciudades_sin_lista.pais_final))
+        print(f'Se ha asignado el pais a las ciudades con la información extraida de la API:{len(df_pais_ciudad_api_sin_duplicados)}')
 
     #Reemplazo los valores que al unirlo con el DF de escrapeo da lugar a duplicados:
     df_itinerarios_ciudades_sin_lista.pais_final= df_itinerarios_ciudades_sin_lista.pais_Final.replace(
