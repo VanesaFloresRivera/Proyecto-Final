@@ -16,4 +16,4 @@ ex.escrapeo_total() #función para extraer datos mediante escrapeo de la página
 
 ex.extraccion_datos_api() #función para extraer los datos de la api con el turismo emisor
 
-#tr.transformacion_total() #funcion para transformar y limpiar los datos
+tr.transformacion_total_1() #funcion para transformar y limpiar los datos
