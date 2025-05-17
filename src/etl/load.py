@@ -64,3 +64,43 @@ def extraer_datos_de_BBDD(query_extracción,dbname=DB_NAME, user=DB_USER,
 
     return diccionario
 
+def limpiar_texto(texto):
+    # Dividir por comas
+    lista_texto = texto.split(',')
+    
+    # Quitar espacios a cada palabra
+    lista_limpia = []
+    for palabra in lista_texto:
+        palabra_sin_espacios = palabra.strip() #quitar espacios del principio y del final
+        lista_limpia.append(palabra_sin_espacios)
+    
+    # Unir de nuevo por comas y espacio
+    texto_final = ', '.join(lista_limpia)
+    
+    return texto_final
+
+def convertir_si_no_a_boolean(df, nombre_columna):
+    """
+    Convierte una columna del DataFrame que contiene 'Si'/'No' a booleanos True/False.
+    
+    Parámetros:
+    - df: pandas DataFrame
+    - nombre_columna: string con el nombre de la columna a convertir
+    
+    Retorna:
+    - df con la columna convertida
+    """
+    df[nombre_columna] = df[nombre_columna].str.lower().map({'si': True, 'no': False})
+    return df
+
+def actualizar_datos_en_BBDD(query_actualizacion,tupla_columnas, dbname=DB_NAME, user=DB_USER,
+                           password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
+
+    conn, cur=lo.crear_conexión(dbname, user, password, host, port) #creo la conexión
+
+    cur.execute(query_actualizacion, tupla_columnas) #ejecuto la query de actualizacion
+    diccionario = dict(cur.fetchall()) #creo un diccionario
+
+    lo.cerrar_conexion(conn, cur) #cierro la conexión
+
+    return diccionario

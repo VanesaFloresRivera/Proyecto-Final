@@ -10,10 +10,10 @@ from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
 from thefuzz import fuzz
-#from src.etl import transform as tr #con jupyter
-#from src.etl import extract as ex #con jupyter
-import extract as ex ## con main.py
-import transform as tr ## con main.py
+from src.etl import transform as tr #con jupyter
+from src.etl import extract as ex #con jupyter
+#import extract as ex ## con main.py
+#import transform as tr ## con main.py
 import unicodedata
 import re
 import warnings
@@ -110,7 +110,8 @@ def limpieza_fichero_turismo_emisor(df_turismo_emisor):
     'Estados Unidos de América':'Estados Unidos',
     'Bhután': 'Bután',
     'Corea':'Corea Del Sur',
-    'Zimbabwe':'Zimbabue'})
+    'Zimbabwe':'Zimbabue',
+    'Botswana':'Botsuana'})
 
 
     ARCHIVO_GUARDAR_DATOS_API_PROCESADOS=os.getenv('ARCHIVO_GUARDAR_DATOS_API_PROCESADOS')
@@ -189,7 +190,8 @@ def correccion_mismonombre_diferenteurl(df_viajes_agrupados):
     return dict_cambios_url,df_cambios_url  
 
 def correccion_duplicados_mismaurl_diferente_nombre(df_viajes_agrupados):
-    dict_cambios_nombre_viaje= {"url_viaje":[],'nombre_anterior':[], 'nombre_nuevo':[]}
+    dict_cambios_nombre_viaje= {"url_viaje":[],'nombre_anterior':[], 'nombre_nuevo':[], 'nombre_anterior_en_ultimo_escrapeo':[],
+                                 'nombre_nuevo_en_ultimo_escrapeo':[]}
     for url in df_viajes_agrupados.url_viaje.unique():
         df_filtrado = df_viajes_agrupados[df_viajes_agrupados.url_viaje == url]
         if len(df_filtrado.nombre_viaje.unique()) >1:
@@ -197,11 +199,19 @@ def correccion_duplicados_mismaurl_diferente_nombre(df_viajes_agrupados):
             #print(len(df_filtrado.nombre_viaje.unique()))
             nombre1= df_filtrado.nombre_viaje.unique()[-2]
             nombre2=df_filtrado.nombre_viaje.unique()[-1]
+            if len(df_filtrado.en_ultimo_escrapeo.unique())>1:
+                en_ultimo_escrapeo_anterior = df_filtrado.en_ultimo_escrapeo.unique()[-2]
+                en_ultimo_escrapeo_nuevo = df_filtrado.en_ultimo_escrapeo.unique()[-1]
+            else:
+                en_ultimo_escrapeo_anterior = df_filtrado.en_ultimo_escrapeo.unique()[-1]
+                en_ultimo_escrapeo_nuevo = df_filtrado.en_ultimo_escrapeo.unique()[-1]
             #print(nombre1)
             #print(nombre2)
             dict_cambios_nombre_viaje['url_viaje'].append(url)
             dict_cambios_nombre_viaje['nombre_anterior'].append(nombre1)
             dict_cambios_nombre_viaje['nombre_nuevo'].append(nombre2)
+            dict_cambios_nombre_viaje['nombre_anterior_en_ultimo_escrapeo'].append(en_ultimo_escrapeo_anterior)
+            dict_cambios_nombre_viaje['nombre_nuevo_en_ultimo_escrapeo'].append(en_ultimo_escrapeo_nuevo)
     df_cambios_nombre_viaje = pd.DataFrame(dict_cambios_nombre_viaje)
     print(f'Los viajes duplicados con nombres diferentes han sido actualizados: {len(df_cambios_nombre_viaje)}')
     return dict_cambios_nombre_viaje, df_cambios_nombre_viaje
@@ -233,6 +243,10 @@ def limpieza_viajes_finales (df_viajes, df_opciones):
     ex.incorporar_información_df_original(df_viajes_agrupados, df_cambios_nombre_viaje,
                                       'url_viaje', 'nombre_nuevo', 'nombre_viaje', 
                                       df_viajes_agrupados.nombre_viaje.isin(dict_cambios_nombre_viaje['nombre_anterior']))
+    ex.incorporar_información_df_original(df_viajes_agrupados, df_cambios_nombre_viaje,
+                                      'url_viaje', 'nombre_nuevo_en_ultimo_escrapeo', 'en_ultimo_escrapeo', 
+                                      df_viajes_agrupados.nombre_viaje.isin(dict_cambios_nombre_viaje['nombre_anterior']))
+    
 
     #elimino los que tiene valores nulos en duracion_Viaje y precio, porque no tengo forma de obtenerlo
     #  ya que son viajes antiguos y las urls ya no están disponibles
@@ -459,16 +473,21 @@ def desglosar_ciudades_itinerarios_2 (df_viajes_agrupados,API_KEY,ARCHIVO_GUARDA
     #Reemplazo los valores que al unirlo con el DF de escrapeo da lugar a duplicados:
     df_itinerarios_ciudades_sin_lista.pais_final= df_itinerarios_ciudades_sin_lista.pais_final.replace(
             {'Estados Unidos de América':'Estados Unidos',
+             'Estados Unidos De America':'Estados Unidos',
              'Spain': 'España',
              'Arabia Saudita': 'Arabia Saudí',
             'Fiyi': 'Fiji',
-            'Francia': 'France',
+            'France': 'Francia',
             'Islas Turcas y Caicos': 'Turks and Caicos',
-            'Papua-Nueva Guinea': 'papua nueva guinea',
+            'Islas Turcas Y Caicos': 'Turks and Caicos',
+            'Papua-Nueva Guinea': 'Papua Nueva Guinea',
             'Zimbawe': 'Zimbabue',
             'Chipre Del Norte': 'Chipre',
-            'Chipre del Norte / Chipre': 'Chipre'})
+            'Chipre del Norte / Chipre': 'Chipre',
+            'Chipre Del Norte / Chipre': 'Chipre',
+            'Botswana': 'Botsuana'})
 
+    print(df_paises_api_todas_ciudades.columns)
     #incorporo la información al df_itinerarios_original
     df_itinerarios_ciudades_completo = df_itinerarios_ciudades[['itinerario_modificado_para_dividir', 'ciudad']]
     df_itinerarios_ciudades_completo['pais_correcto']= None
@@ -476,9 +495,11 @@ def desglosar_ciudades_itinerarios_2 (df_viajes_agrupados,API_KEY,ARCHIVO_GUARDA
                                            'ciudad','pais_final','pais_correcto')
     print(f'Se ha informado el pais correcto a cada ciudad de cada itinerario:{len(df_itinerarios_ciudades_completo)}')
 
+    df_itinerarios_ciudades_completo['itinerario_modificado_para_dividir'] = df_itinerarios_ciudades_completo[
+        'itinerario_modificado_para_dividir'].str.replace(r'\s+', ' ', regex=True).str.strip() #eliminar espacios de delante y duplicados entre dos palabras
 
     ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')
-    df_itinerarios_ciudades_sin_lista.to_pickle(ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1)
+    df_itinerarios_ciudades_completo.to_pickle(ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1)
     print(f'Se ha guardado la informacion de itinerarios y ciudades:{len(df_itinerarios_ciudades_completo)} ')
     return df_itinerarios_ciudades_completo
   
