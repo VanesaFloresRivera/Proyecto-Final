@@ -6,7 +6,7 @@ CREATE TABLE pais_destino (
 );
 
 CREATE TABLE itinerario (
-    id_itinerario SERIAL PRIMARY KEY
+    id_itinerario SERIAL PRIMARY KEY,
     detalle_itinerario TEXT UNIQUE
 );
 
@@ -24,8 +24,8 @@ CREATE TABLE ciudad_itinerario (
 
 CREATE TABLE viaje (
     id_viaje SERIAL PRIMARY KEY,
-    nombre_viaje TEXT UNIQUE,
     url_viaje TEXT UNIQUE,
+    nombre_viaje TEXT,
     duracion_dias INT,
     duracion_noches INT,
     id_itinerario INT REFERENCES itinerario(id_itinerario) ON DELETE CASCADE,

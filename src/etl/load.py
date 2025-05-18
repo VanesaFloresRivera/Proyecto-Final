@@ -42,15 +42,16 @@ def cerrar_conexion (conexion, cursor):
 def insertar_datos_en_BBDD(insert_query,data_to_insert,dbname=DB_NAME, user=DB_USER,
                            password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
     
-    conn, cur=lo.crear_conexión(dbname, user, password, host, port)
+    if len(data_to_insert)>0:
+        conn, cur=lo.crear_conexión(dbname, user, password, host, port)
 
-    if isinstance(data_to_insert,list): # si data_to_insert es una lista
-        cur.executemany(insert_query,data_to_insert) #ejecuto la acción de subida a la BBDD
-    else: # si data_to_insert no es una lista
-        cur.execute(insert_query,data_to_insert) #ejecuto la acción de subida a la BBDD
-    conn.commit() #guardo la subida
+        if isinstance(data_to_insert,list): # si data_to_insert es una lista
+            cur.executemany(insert_query,data_to_insert) #ejecuto la acción de subida a la BBDD
+        else: # si data_to_insert no es una lista
+            cur.execute(insert_query,data_to_insert) #ejecuto la acción de subida a la BBDD
+        conn.commit() #guardo la subida
 
-    lo.cerrar_conexion(conn, cur)
+        lo.cerrar_conexion(conn, cur)
 
 def extraer_datos_de_BBDD(query_extracción,dbname=DB_NAME, user=DB_USER,
                            password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
@@ -93,14 +94,23 @@ def convertir_si_no_a_boolean(df, nombre_columna):
     df[nombre_columna] = df[nombre_columna].str.lower().map({'si': True, 'no': False})
     return df
 
-def actualizar_datos_en_BBDD(query_actualizacion,tupla_columnas, dbname=DB_NAME, user=DB_USER,
+def actualizar_datos_en_bbdd(query_actualizacion,tupla_columnas, dbname=DB_NAME, user=DB_USER,
                            password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
 
     conn, cur=lo.crear_conexión(dbname, user, password, host, port) #creo la conexión
 
     cur.execute(query_actualizacion, tupla_columnas) #ejecuto la query de actualizacion
-    diccionario = dict(cur.fetchall()) #creo un diccionario
 
     lo.cerrar_conexion(conn, cur) #cierro la conexión
 
-    return diccionario
+def extraer_tupla_datos_bbdd (query_extraccion_tupla, dbname=DB_NAME, user=DB_USER,
+                           password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
+
+    conn, cur=lo.crear_conexión(dbname, user, password, host, port) #creo la conexión
+
+    cur.execute(query_extraccion_tupla) #ejecuto la extracción
+    existing_pairs = set(cur.fetchall()) #creo un diccionario
+
+    lo.cerrar_conexion(conn, cur) #cierro la conexión
+
+    return existing_pairs
