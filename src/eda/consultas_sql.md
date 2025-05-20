@@ -195,7 +195,8 @@ ORDER BY pais_destino;
 
 
 SELECT te.id_pais_destino,
-	sum(te.num_turistas) AS suma_turistas
+	sum(te.num_turistas) AS suma_turistas,
+	sum(te.num_pernoctaciones) AS suma_pernoctaciones,
 FROM turismo_emisor te
 INNER JOIN pais_destino pd ON te.id_pais_destino = te.id_pais_destino
 GROUP BY 1

@@ -5,10 +5,10 @@ import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
 import os
 from dotenv import load_dotenv
-from src.etl import transform as tr #con jupyter
-#import transform as tr #con main.py
-from src.etl import load as lo #con jupyter
-#import load as lo #con main.py
+#from src.etl import transform as tr #con jupyter
+import transform as tr #con main.py
+#from src.etl import load as lo #con jupyter
+import load as lo #con main.py
 
 load_dotenv()
 
@@ -156,15 +156,20 @@ def extraccion_unicos_paises_escrapeados(archivo_guardar_continentes_procesados 
 
 def extraccion_unicos_paises_itinerarios(archivo_guardar_itinerarios_procesados_1 = os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')):
     df_itinerarios_ciudades = pd.read_pickle(archivo_guardar_itinerarios_procesados_1)
+    df_itinerarios_ciudades.pais_correcto= df_itinerarios_ciudades.pais_correcto.replace({
+    'Chequia':'Republica Checa'
+                                            })
 
     #me quedo solo con los datos que me interesan
     df_itinerarios_ciudades_pais_continentes = pd.DataFrame()
+    df_itinerarios_ciudades_pais_continentes['pais'] = None
     df_itinerarios_ciudades_pais_continentes['pais'] = df_itinerarios_ciudades['pais_correcto'].drop_duplicates().reset_index(drop=True)
 
     #normalizo y capitalizo la columna pais:
     df_itinerarios_ciudades_pais_continentes = lo.normalizar_capitalizar_columna(df_itinerarios_ciudades_pais_continentes, 'pais')
-
+    #print(df_itinerarios_ciudades_pais_continentes)
     return df_itinerarios_ciudades_pais_continentes
+
 
 def extraccion_informacion_obtenida_api_opencage(archivo_guardar_total_ciudades_api = os.getenv('ARCHIVO_GUARDAR_TOTAL_CIUDADES_API'),
                                                                                                archivo_extraccion_api_duplicados = os.getenv('ARCHIVO_EXTRACCION_API_DUPLICADOS')):
@@ -193,7 +198,11 @@ def extraccion_informacion_obtenida_api_opencage(archivo_guardar_total_ciudades_
 
 def obtencion_paises_continentes_no_incluidos_turismo_emisor_escrapeo(df_paises_continentes_turismos_emisor, df_paises_continentes_escrapeo,df_itinerarios_ciudades_pais_continentes,df_opencage_ciudades_totales,df_paises_api_duplicados):
     dict_paises_continentes_ciudades = {'pais':[], 'continente':[]}
-    for pais in df_itinerarios_ciudades_pais_continentes.pais:
+    #print(df_itinerarios_ciudades_pais_continentes.pais.unique())
+    #print(df_itinerarios_ciudades_pais_continentes[df_itinerarios_ciudades_pais_continentes.pais=='Chequia']) #depurar el código, por algún motivo, no coge el pais Chequia, Sovereign Base Areas Of Akrotiri And Dhekelia,No Existe Resultado y Catar. En jupyter si funciona
+    for pais in df_itinerarios_ciudades_pais_continentes.pais.tolist():
+        if pais=='Catar ':
+            print('Catar')
         if pais in df_paises_continentes_escrapeo.nombre_pais_destino.tolist():
             pass
         else:
@@ -214,11 +223,14 @@ def obtencion_paises_continentes_no_incluidos_turismo_emisor_escrapeo(df_paises_
                         else:
                             pass
         df_paises_continentes_ciudades = pd.DataFrame(dict_paises_continentes_ciudades)
-        df_paises_continentes_ciudades
 
         #renombro las columnas:
         df_paises_continentes_ciudades= df_paises_continentes_ciudades.rename(
         columns={'pais':'nombre_pais_destino', 'continente':'nombre_continente'})
+
+        #normalizo y capitalizo la columna pais_api:
+        df_paises_continentes_ciudades = lo.normalizar_capitalizar_columna(df_paises_continentes_ciudades, 'nombre_pais_destino')
+        #print(dict_paises_continentes_ciudades)
 
         return df_paises_continentes_ciudades
 
@@ -251,6 +263,8 @@ def obtencion_tabla_paises_continentes_unicos():
                                                                                                           df_paises_continentes_escrapeo,df_itinerarios_ciudades_pais_continentes,df_opencage_ciudades_totales,df_paises_api_duplicados)
     df_paises_continentes_totales= lo.obtencion_paises_continentes_unicos (df_paises_continentes_turismos_emisor,df_paises_continentes_escrapeo,df_paises_continentes_ciudades)
     print(f'Existen {len(df_paises_continentes_totales)} paises únicos')
+   #normalizo y capitalizo la columna pais_api:
+    df_paises_continentes_totales = lo.normalizar_capitalizar_columna(df_paises_continentes_totales, 'nombre_pais_destino').drop_duplicates()
     return df_paises_continentes_totales
 
 def carga_tabla_pais_destino(df_paises_continentes_totales):
@@ -280,6 +294,9 @@ def carga_tabla_pais_destino(df_paises_continentes_totales):
 
 def carga_tabla_itinerario (archivo_guardar_itinerarios_procesados_1=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')):
     df_itinerarios_ciudades = pd.read_pickle(archivo_guardar_itinerarios_procesados_1)
+    df_itinerarios_ciudades.pais_correcto= df_itinerarios_ciudades.pais_correcto.replace({
+    'Chequia':'Republica Checa'
+                                            })
 
     #limpio los espacios entre las comas que sobran
     df_itinerarios_ciudades['itinerario_modificado_para_dividir'] = df_itinerarios_ciudades['itinerario_modificado_para_dividir'].apply(lo.limpiar_texto)
@@ -315,10 +332,18 @@ def carga_tabla_itinerario (archivo_guardar_itinerarios_procesados_1=os.getenv('
 
 def carga_tabla_ciudad (archivo_guardar_itinerarios_procesados_1=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')):
     df_itinerarios_ciudades = pd.read_pickle(archivo_guardar_itinerarios_procesados_1)
+    df_itinerarios_ciudades.pais_correcto= df_itinerarios_ciudades.pais_correcto.replace({
+    'Chequia':'Republica Checa'
+                                            })
+
 
     #creo el DF con la ciudad y el pais para preparar los datos para la carga y elimino duplicados:
     df_ciudad_pais_unicos = df_itinerarios_ciudades[['ciudad','pais_correcto']].drop_duplicates().reset_index(drop=True)    
     print(f'Existen {len(df_ciudad_pais_unicos)} ciudades únicas')
+
+     #normalizo y capitalizo la columna ciudad y pais correcto:
+    df_ciudad_pais_unicos = lo.normalizar_capitalizar_columna(df_ciudad_pais_unicos, 'ciudad')
+    df_ciudad_pais_unicos = lo.normalizar_capitalizar_columna(df_ciudad_pais_unicos, 'pais_correcto')
 
     #CARGA BBDD:
     #Extraigo la información de la BBDD existente en la tabla Ciudad
@@ -352,6 +377,9 @@ def carga_tabla_ciudad (archivo_guardar_itinerarios_procesados_1=os.getenv('ARCH
 
 def carga_tabla_ciudad_itinerario(archivo_guardar_itinerarios_procesados_1=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')):
     df_itinerarios_ciudades = pd.read_pickle(archivo_guardar_itinerarios_procesados_1)
+    df_itinerarios_ciudades.pais_correcto= df_itinerarios_ciudades.pais_correcto.replace({
+    'Chequia':'Republica Checa'
+                                            })
 
     #limpio los espacios entre las comas que sobran
     df_itinerarios_ciudades['itinerario_modificado_para_dividir'] = df_itinerarios_ciudades['itinerario_modificado_para_dividir'].apply(lo.limpiar_texto)
