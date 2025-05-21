@@ -5,10 +5,10 @@ import os
 from dotenv import load_dotenv
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
-#from src.etl import transform as tr #con jupyter
-#from src.etl import extract as ex #con jupyter
-import extract as ex ## con main.py
-import transform as tr ## con main.py
+from src.etl import transform as tr #con jupyter
+from src.etl import extract as ex #con jupyter
+#import extract as ex ## con main.py
+#import transform as tr ## con main.py
 import unicodedata
 import re
 import warnings

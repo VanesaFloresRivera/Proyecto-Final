@@ -14,12 +14,12 @@ import transform as tr
 import load as lo
 
 print('COMIENZA LA FASE DE EXTRACCIÓN DE LOS DATOS')
-#ex.escrapeo_total() #función para extraer datos mediante escrapeo de la página web
+ex.escrapeo_total() #función para extraer datos mediante escrapeo de la página web
 
-#ex.extraccion_datos_api() #función para extraer los datos de la api con el turismo emisor
+ex.extraccion_datos_api() #función para extraer los datos de la api con el turismo emisor
 
-#print('COMIENZA LA FASE DE TRANSFORMACIÓN')
-#tr.transformacion_total_1() #funcion para transformar y limpiar los datos
+print('COMIENZA LA FASE DE TRANSFORMACIÓN')
+tr.transformacion_total_1() #funcion para transformar y limpiar los datos
 
 print('COMIENZA LA FASE DE CARGA EN BBDD')
 lo.carga_total()#funcion para cargar los datos en la BBDD
