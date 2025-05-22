@@ -9,8 +9,8 @@ import time
 from datetime import datetime
 import sys #permite navegar por el sistema
 sys.path.append("../") #solo aplica al soporte
-from src.etl import extract as ex #con jupyter
-#import extract as ex ## con main.py
+#from src.etl import extract as ex #con jupyter
+import extract as ex ## con main.py
 
 def crear_sopa(url):
     res_pais=rq.get(url)# Accedemos a la url
