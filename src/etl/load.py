@@ -25,6 +25,38 @@ def crear_conexión (dbname=DB_NAME,
     password=DB_PASSWORD,
     host=DB_HOST,
     port=DB_PORT):
+    """
+    Crea una conexión a una base de datos PostgreSQL y devuelve tanto la conexión como el cursor.
+
+    Parámetros:
+    -----------
+    dbname : str, opcional
+        Nombre de la base de datos a la que conectarse (por defecto, valor de `DB_NAME`).
+    
+    user : str, opcional
+        Usuario de la base de datos (por defecto, valor de `DB_USER`).
+    
+    password : str, opcional
+        Contraseña del usuario (por defecto, valor de `DB_PASSWORD`).
+    
+    host : str, opcional
+        Dirección del servidor de la base de datos (por defecto, valor de `DB_HOST`).
+    
+    port : int o str, opcional
+        Puerto de conexión al servidor de la base de datos (por defecto, valor de `DB_PORT`).
+
+    Retorna:
+    --------
+    tuple
+        Una tupla `(conn, cur)` donde:
+        - `conn` es la conexión activa a la base de datos.
+        - `cur` es el cursor para ejecutar comandos SQL sobre esa conexión.
+
+    Notas:
+    ------
+    - Se requiere tener `psycopg2` instalado para usar esta función.
+    - Asegúrate de cerrar la conexión con `conn.close()` y el cursor con `cur.close()` tras finalizar el uso.
+    """
 
     conn = psycopg2.connect(
     dbname=dbname,
@@ -39,12 +71,65 @@ def crear_conexión (dbname=DB_NAME,
     return conn, cur
 
 def cerrar_conexion (conexion, cursor):
+    """
+    Cierra de forma ordenada el cursor y la conexión a la base de datos.
+
+    Parámetros:
+    -----------
+    conexion : psycopg2.extensions.connection
+        Objeto de conexión a la base de datos.
+
+    cursor : psycopg2.extensions.cursor
+        Objeto cursor asociado a la conexión, utilizado para ejecutar consultas SQL.
+
+    Retorna:
+    --------
+    None
+    """
     cursor.close() #cierro el cursor
     conexion.close() #cierro la conexión
 
 def insertar_datos_en_BBDD(insert_query,data_to_insert,dbname=DB_NAME, user=DB_USER,
                            password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
-    
+    """
+    Inserta uno o varios registros en una base de datos PostgreSQL mediante una consulta parametrizada.
+
+    Parámetros:
+    -----------
+    insert_query : str
+        Sentencia SQL de inserción preparada (con parámetros %s), utilizada para insertar datos.
+
+    data_to_insert : list[tuple] o tuple
+        Datos a insertar en la base de datos. Puede ser:
+        - Una lista de tuplas (para insertar múltiples registros con `executemany`)
+        - Una única tupla (para insertar un solo registro con `execute`)
+
+    dbname : str, opcional
+        Nombre de la base de datos. Por defecto, se toma de la variable global `DB_NAME`.
+
+    user : str, opcional
+        Nombre de usuario de la base de datos. Por defecto, `DB_USER`.
+
+    password : str, opcional
+        Contraseña del usuario. Por defecto, `DB_PASSWORD`.
+
+    host : str, opcional
+        Dirección del servidor de base de datos. Por defecto, `DB_HOST`.
+
+    port : str o int, opcional
+        Puerto de acceso al servidor. Por defecto, `DB_PORT`.
+
+    Retorna:
+    --------
+    None
+
+    Notas:
+    ------
+    - Solo ejecuta la inserción si `data_to_insert` contiene al menos un elemento.
+    - La conexión y el cursor se abren y cierran automáticamente dentro de la función.
+    - Se usa `executemany()` si `data_to_insert` es una lista de tuplas y `execute()` si es un solo registro.
+    - La transacción se confirma con `commit()` tras la ejecución.
+    """  
     if len(data_to_insert)>0:
         conn, cur=lo.crear_conexión(dbname, user, password, host, port)
 
@@ -58,6 +143,40 @@ def insertar_datos_en_BBDD(insert_query,data_to_insert,dbname=DB_NAME, user=DB_U
 
 def extraer_datos_de_BBDD(query_extracción,dbname=DB_NAME, user=DB_USER,
                            password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
+    """
+    Ejecuta una consulta SQL sobre una base de datos PostgreSQL y devuelve los resultados en forma de diccionario.
+
+    Parámetros:
+    -----------
+    query_extracción : str
+        Consulta SQL que debe devolver dos columnas: clave y valor, para poder convertir el resultado a diccionario.
+
+    dbname : str, opcional
+        Nombre de la base de datos. Por defecto, `DB_NAME`.
+
+    user : str, opcional
+        Usuario de acceso a la base de datos. Por defecto, `DB_USER`.
+
+    password : str, opcional
+        Contraseña del usuario. Por defecto, `DB_PASSWORD`.
+
+    host : str, opcional
+        Dirección del servidor de la base de datos. Por defecto, `DB_HOST`.
+
+    port : int o str, opcional
+        Puerto del servidor. Por defecto, `DB_PORT`.
+
+    Retorna:
+    --------
+    dict
+        Diccionario con los datos extraídos, donde cada fila de la consulta se convierte en un par clave–valor.
+
+    Notas:
+    ------
+    - La consulta debe retornar exactamente dos columnas para que `dict(cur.fetchall())` funcione correctamente.
+    - La función abre y cierra automáticamente la conexión a la base de datos.
+    - Si la consulta no devuelve datos o el formato no es compatible, se lanzará un error.
+    """
 
     conn, cur=lo.crear_conexión(dbname, user, password, host, port) #creo la conexión
 
@@ -69,6 +188,25 @@ def extraer_datos_de_BBDD(query_extracción,dbname=DB_NAME, user=DB_USER,
     return diccionario
 
 def limpiar_texto(texto):
+    """
+    Limpia una cadena de texto separada por comas, eliminando espacios innecesarios alrededor de cada elemento
+    y devolviendo el texto limpio, separado por ', '.
+
+    Parámetros:
+    -----------
+    texto : str
+        Cadena de texto que contiene elementos separados por comas (ej. " París ,Londres,  Roma ").
+
+    Retorna:
+    --------
+    str
+        Cadena limpia con los elementos separados por coma y un solo espacio, sin espacios sobrantes.
+
+    Ejemplo:
+    --------
+    >>> limpiar_texto(" París ,Londres,  Roma ")
+    'París, Londres, Roma'
+    """
     # Dividir por comas
     lista_texto = texto.split(',')
     
@@ -99,7 +237,43 @@ def convertir_si_no_a_boolean(df, nombre_columna):
 
 def actualizar_datos_en_bbdd(query_actualizacion,tupla_columnas, dbname=DB_NAME, user=DB_USER,
                            password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
+    """
+    Ejecuta una consulta de actualización (UPDATE) en una base de datos PostgreSQL con parámetros dinámicos.
 
+    Parámetros:
+    -----------
+    query_actualizacion : str
+        Sentencia SQL de actualización parametrizada, con marcadores `%s` para los valores.
+
+    tupla_columnas : tuple
+        Tupla con los valores que se deben insertar en la sentencia SQL.
+
+    dbname : str, opcional
+        Nombre de la base de datos (por defecto, `DB_NAME`).
+
+    user : str, opcional
+        Usuario de la base de datos (por defecto, `DB_USER`).
+
+    password : str, opcional
+        Contraseña del usuario (por defecto, `DB_PASSWORD`).
+
+    host : str, opcional
+        Host del servidor (por defecto, `DB_HOST`).
+
+    port : str o int, opcional
+        Puerto de acceso a la base de datos (por defecto, `DB_PORT`).
+
+    Retorna:
+    --------
+    None
+
+    Notas:
+    ------
+    - La conexión y el cursor se abren y cierran automáticamente.
+    - La función no hace commit, por lo que si el UPDATE no tiene efecto inmediato,
+      puede ser conveniente incluir `conn.commit()` si se requiere confirmación explícita.
+    - Asegúrate de que la tupla tenga el mismo número de elementos que los parámetros en la query.
+    """
     conn, cur=lo.crear_conexión(dbname, user, password, host, port) #creo la conexión
 
     cur.execute(query_actualizacion, tupla_columnas) #ejecuto la query de actualizacion
@@ -108,7 +282,39 @@ def actualizar_datos_en_bbdd(query_actualizacion,tupla_columnas, dbname=DB_NAME,
 
 def extraer_tupla_datos_bbdd (query_extraccion_tupla, dbname=DB_NAME, user=DB_USER,
                            password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
+    """
+    Ejecuta una consulta SQL sobre una base de datos PostgreSQL y devuelve los resultados como un conjunto de tuplas.
 
+    Parámetros:
+    -----------
+    query_extraccion_tupla : str
+        Consulta SQL que debe devolver múltiples columnas (por ejemplo, para verificar combinaciones existentes).
+
+    dbname : str, opcional
+        Nombre de la base de datos (por defecto, `DB_NAME`).
+
+    user : str, opcional
+        Usuario de acceso a la base de datos (por defecto, `DB_USER`).
+
+    password : str, opcional
+        Contraseña del usuario (por defecto, `DB_PASSWORD`).
+
+    host : str, opcional
+        Dirección del servidor de la base de datos (por defecto, `DB_HOST`).
+
+    port : int o str, opcional
+        Puerto del servidor de la base de datos (por defecto, `DB_PORT`).
+
+    Retorna:
+    --------
+    set of tuple
+        Conjunto de tuplas con los resultados de la consulta. Útil para verificar si una combinación de valores ya existe.
+
+    Notas:
+    ------
+    - La función abre y cierra automáticamente la conexión a la base de datos.
+    - Ideal para evitar inserciones duplicadas mediante validaciones previas.
+    """
     conn, cur=lo.crear_conexión(dbname, user, password, host, port) #creo la conexión
 
     cur.execute(query_extraccion_tupla) #ejecuto la extracción
@@ -119,11 +325,66 @@ def extraer_tupla_datos_bbdd (query_extraccion_tupla, dbname=DB_NAME, user=DB_US
     return existing_pairs
 
 def normalizar_capitalizar_columna (df,columna):
+    """
+    Aplica una transformación de normalización y capitalización a una columna de un DataFrame.
+
+    Parámetros:
+    -----------
+    df : pandas.DataFrame
+        DataFrame que contiene la columna a transformar.
+
+    columna : str
+        Nombre de la columna del DataFrame sobre la que se aplicarán las transformaciones.
+
+    Retorna:
+    --------
+    pandas.DataFrame
+        El mismo DataFrame con la columna transformada.
+
+    Notas:
+    ------
+    - La función `tr.normalizar_texto` debe encargarse de eliminar tildes, caracteres especiales, etc.
+    - La función `tr.capitalizar_texto` debe encargarse de convertir a mayúscula solo la primera letra de cada palabra.
+    - Ambas funciones deben estar definidas previamente en el módulo `tr`.
+
+    Ejemplo:
+    --------
+    >>> df = normalizar_capitalizar_columna(df, "nombre_ciudad")
+    """
     df[columna] = df[columna].map(tr.normalizar_texto)
     df[columna] = df[columna].map(tr.capitalizar_texto)
     return df
 
 def extraccion_unicos_pais_continente_turismo_emisor(archivo_guardar_datos_api_procesados = os.getenv('ARCHIVO_GUARDAR_DATOS_API_PROCESADOS')):
+    """
+    Extrae y limpia una tabla única de países y continentes a partir de los datos procesados del turismo emisor.
+
+    Parámetros:
+    -----------
+    archivo_guardar_datos_api_procesados : str, opcional
+        Ruta del archivo CSV procesado con datos de turismo emisor.
+        Por defecto, se toma desde la variable de entorno 'ARCHIVO_GUARDAR_DATOS_API_PROCESADOS'.
+
+    Retorna:
+    --------
+    pandas.DataFrame
+        DataFrame con dos columnas:
+        - 'nombre_pais_destino' (normalizada y capitalizada),
+        - 'nombre_continente'.
+
+    Proceso:
+    --------
+    - Lee el archivo CSV procesado de la API de turismo emisor.
+    - Selecciona solo las columnas de país y continente.
+    - Elimina duplicados.
+    - Renombra las columnas a un formato más estandarizado.
+    - Aplica normalización y capitalización al nombre del país destino.
+
+    Notas:
+    ------
+    - Requiere que las funciones `normalizar_texto` y `capitalizar_texto` estén accesibles desde `lo`.
+    - La columna `'nombre_pais_destino'` queda lista para integrarse con otras fuentes que usen formato normalizado.
+    """
     df_turismo_emisor_procesado=pd.read_csv(archivo_guardar_datos_api_procesados) #importe el fichero procesado
     #me quedon con las columnas que me interesan y elimino duplicados:
     df_paises_continentes_turismos_emisor=df_turismo_emisor_procesado[['PAIS_DESTINO','CONTINENTE_DESTINO']]
@@ -139,6 +400,34 @@ def extraccion_unicos_pais_continente_turismo_emisor(archivo_guardar_datos_api_p
     return df_paises_continentes_turismos_emisor
 
 def extraccion_unicos_paises_escrapeados(archivo_guardar_continentes_procesados = os.getenv('ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS')):
+    """
+    Extrae y limpia una tabla única de países y continentes a partir de los datos acumulados por scraping.
+
+    Parámetros:
+    -----------
+    archivo_guardar_continentes_procesados : str, opcional
+        Ruta del archivo `.pkl` con los resultados acumulados del scraping de continentes por país.
+        Por defecto, se toma desde la variable de entorno 'ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS'.
+
+    Retorna:
+    --------
+    pandas.DataFrame
+        DataFrame con las columnas:
+        - 'nombre_pais_destino': nombre del país, normalizado y capitalizado.
+        - 'nombre_continente': continente correspondiente.
+
+    Proceso:
+    --------
+    - Carga el DataFrame guardado con los resultados del scraping.
+    - Filtra solo las columnas relevantes ('pais', 'continente').
+    - Elimina duplicados y renombra las columnas.
+    - Aplica una limpieza de texto con normalización y capitalización al nombre del país.
+
+    Notas:
+    ------
+    - Requiere que la función `lo.normalizar_capitalizar_columna` esté disponible.
+    - Este DataFrame se puede usar para comparar la cobertura de scraping frente a los datos de la API oficial.
+    """
     df_paises_continentes_escrapeo = pd.read_pickle(archivo_guardar_continentes_procesados)
     
     #me quedon con las columnas que me interesan y elimino duplicados:
@@ -155,6 +444,33 @@ def extraccion_unicos_paises_escrapeados(archivo_guardar_continentes_procesados 
     return df_paises_continentes_escrapeo
 
 def extraccion_unicos_paises_itinerarios(archivo_guardar_itinerarios_procesados_1 = os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')):
+    """
+    Extrae una lista única de países desde los itinerarios procesados, normalizando y corrigiendo nombres específicos.
+
+    Parámetros:
+    -----------
+    archivo_guardar_itinerarios_procesados_1 : str, opcional
+        Ruta del archivo `.pkl` que contiene los datos de itinerarios procesados.
+        Por defecto, se toma desde la variable de entorno 'ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1'.
+
+    Retorna:
+    --------
+    pandas.DataFrame
+        DataFrame con una única columna:
+        - 'pais': nombres de países únicos, corregidos, normalizados y capitalizados.
+
+    Proceso:
+    --------
+    - Carga los datos procesados de itinerarios desde un archivo `.pkl`.
+    - Realiza una corrección específica de nombre ('Chequia' → 'Republica Checa').
+    - Extrae los países únicos desde la columna `pais_correcto`.
+    - Aplica transformación de texto: normalización y capitalización.
+
+    Notas:
+    ------
+    - La función `lo.normalizar_capitalizar_columna` debe estar definida en el entorno.
+    - Este conjunto puede usarse para comparar los países incluidos en los itinerarios frente a los destinos o datos oficiales.
+    """
     df_itinerarios_ciudades = pd.read_pickle(archivo_guardar_itinerarios_procesados_1)
     df_itinerarios_ciudades.pais_correcto= df_itinerarios_ciudades.pais_correcto.replace({
     'Chequia':'Republica Checa'
@@ -173,6 +489,36 @@ def extraccion_unicos_paises_itinerarios(archivo_guardar_itinerarios_procesados_
 
 def extraccion_informacion_obtenida_api_opencage(archivo_guardar_total_ciudades_api = os.getenv('ARCHIVO_GUARDAR_TOTAL_CIUDADES_API'),
                                                                                                archivo_extraccion_api_duplicados = os.getenv('ARCHIVO_EXTRACCION_API_DUPLICADOS')):
+    """
+    Extrae y limpia la información geográfica obtenida desde la API de OpenCage, incluyendo ciudades geolocalizadas
+    y países con registros duplicados en distintos continentes.
+
+    Parámetros:
+    -----------
+    archivo_guardar_total_ciudades_api : str, opcional
+        Ruta del archivo `.pkl` que contiene los datos geográficos completos obtenidos por API.
+        Por defecto, se carga desde la variable de entorno 'ARCHIVO_GUARDAR_TOTAL_CIUDADES_API'.
+
+    archivo_extraccion_api_duplicados : str, opcional
+        Ruta del archivo `.pkl` que contiene los países detectados como duplicados en más de un continente.
+        Por defecto, se carga desde la variable de entorno 'ARCHIVO_EXTRACCION_API_DUPLICADOS'.
+
+    Retorna:
+    --------
+    tuple
+        - df_opencage_ciudades_totales : pandas.DataFrame  
+            Contiene los datos de geolocalización de ciudades, con nombres de continentes en español
+            y columna `pais_api` normalizada y capitalizada.
+        
+        - df_paises_api_duplicados : pandas.DataFrame  
+            Subconjunto de países que aparecen con distintos continentes en los datos de OpenCage.
+
+    Notas:
+    ------
+    - Se reemplazan los nombres de continentes en inglés por su equivalente en español en ambas tablas.
+    - La columna `pais_api` se limpia con normalización y capitalización mediante `lo.normalizar_capitalizar_columna`.
+    - Este proceso es útil para validar la coherencia geográfica de los datos antes de su integración.
+    """
     #importo el DF de la geolocalizacion de ciudades obtenidas de la api de opencage:
     df_opencage_ciudades_totales = pd.read_pickle(archivo_guardar_total_ciudades_api)
 
@@ -197,6 +543,42 @@ def extraccion_informacion_obtenida_api_opencage(archivo_guardar_total_ciudades_
     
 
 def obtencion_paises_continentes_no_incluidos_turismo_emisor_escrapeo(df_paises_continentes_turismos_emisor, df_paises_continentes_escrapeo,df_itinerarios_ciudades_pais_continentes,df_opencage_ciudades_totales,df_paises_api_duplicados):
+    """
+    Identifica los países presentes en los itinerarios que no están en los datos oficiales del turismo emisor
+    ni en los resultados del scraping, y trata de completar su continente desde los datos de la API de OpenCage.
+
+    Parámetros:
+    -----------
+    df_paises_continentes_turismos_emisor : pandas.DataFrame
+        Países y continentes obtenidos desde la fuente oficial del turismo emisor (Dataestur).
+
+    df_paises_continentes_escrapeo : pandas.DataFrame
+        Países y continentes obtenidos por scraping desde la web de TUI.
+
+    df_itinerarios_ciudades_pais_continentes : pandas.DataFrame
+        Países únicos extraídos de los itinerarios de los viajes (fuente interna del proyecto).
+
+    df_opencage_ciudades_totales : pandas.DataFrame
+        Datos de ciudades y países geolocalizados a través de la API de OpenCage.
+
+    df_paises_api_duplicados : pandas.DataFrame
+        Subconjunto de países detectados con múltiples continentes en la API de OpenCage.
+
+    Retorna:
+    --------
+    pandas.DataFrame
+        DataFrame con las columnas:
+        - 'nombre_pais_destino': países que no estaban en las otras fuentes y que se han podido asignar a un continente.
+        - 'nombre_continente': continente correspondiente, obtenido desde OpenCage o sus duplicados.
+
+    Notas:
+    ------
+    - Se hace una comparación país a país de la fuente de itinerarios contra las demás fuentes para detectar ausencias.
+    - Solo se incluyen países que pueden encontrarse en `df_opencage_ciudades_totales` o en `df_paises_api_duplicados`.
+    - Se normaliza y capitaliza la columna `nombre_pais_destino` para mantener consistencia en los nombres.
+    - El código incluye condiciones especiales (por ejemplo, un `print` de depuración para 'Catar') que podrían eliminarse en versión final.
+    - Esta función ayuda a completar la tabla de países y continentes antes de un análisis o cruce final.
+    """
     dict_paises_continentes_ciudades = {'pais':[], 'continente':[]}
     #print(df_itinerarios_ciudades_pais_continentes.pais.unique())
     #print(df_itinerarios_ciudades_pais_continentes[df_itinerarios_ciudades_pais_continentes.pais=='Chequia']) #depurar el código, por algún motivo, no coge el pais Chequia, Sovereign Base Areas Of Akrotiri And Dhekelia,No Existe Resultado y Catar. En jupyter si funciona
@@ -235,6 +617,40 @@ def obtencion_paises_continentes_no_incluidos_turismo_emisor_escrapeo(df_paises_
         return df_paises_continentes_ciudades
 
 def obtencion_paises_continentes_unicos (df_paises_continentes_turismos_emisor,df_paises_continentes_escrapeo,df_paises_continentes_ciudades):
+    """
+    Une las tablas de países–continentes procedentes de varias fuentes y elimina duplicados,
+    resolviendo manualmente las asignaciones inconsistentes (países asignados a más de un continente).
+
+    Parámetros:
+    -----------
+    df_paises_continentes_turismos_emisor : pandas.DataFrame
+        Datos oficiales de países y continentes obtenidos desde el turismo emisor (Dataestur).
+    
+    df_paises_continentes_escrapeo : pandas.DataFrame
+        Datos de países y continentes obtenidos por scraping desde TUI.
+
+    df_paises_continentes_ciudades : pandas.DataFrame
+        Datos de países y continentes recuperados a partir de la geolocalización de ciudades (OpenCage u otros).
+
+    Retorna:
+    --------
+    pandas.DataFrame
+        DataFrame único con los países y sus continentes, sin duplicados, y con conflictos resueltos manualmente.
+
+    Proceso:
+    --------
+    - Concatena los tres DataFrames en uno solo.
+    - Elimina duplicados por combinación de país y continente.
+    - Identifica los países que aparecen más de una vez (asignados a varios continentes).
+    - Reasigna manualmente esos países a un continente por defecto ('Asia').
+    - Elimina los duplicados resultantes de la corrección.
+
+    Notas:
+    ------
+    - Esta función asume que cualquier país duplicado debe pertenecer a Asia (esto puede personalizarse).
+    - Las entradas deben tener las columnas 'nombre_pais_destino' y 'nombre_continente'.
+    - Es una etapa final de consolidación útil antes de alimentar un modelo o visualizar los datos.
+    """
     df_paises_continentes_totales=pd.concat(
         [df_paises_continentes_turismos_emisor,df_paises_continentes_escrapeo, df_paises_continentes_ciudades], axis=0)
     df_paises_continentes_totales = df_paises_continentes_totales.drop_duplicates(['nombre_pais_destino', 'nombre_continente']).reset_index(drop=True)
@@ -254,6 +670,43 @@ def obtencion_paises_continentes_unicos (df_paises_continentes_turismos_emisor,d
     return df_paises_continentes_totales
 
 def obtencion_tabla_paises_continentes_unicos():
+    """
+    Genera la tabla final consolidada de países y continentes únicos, combinando y depurando datos de múltiples fuentes:
+    API de turismo emisor, scraping, itinerarios y geolocalización de ciudades (OpenCage).
+
+    Parámetros:
+    -----------
+    No recibe parámetros directamente. Las rutas de los archivos de entrada se leen desde variables de entorno:
+    - ARCHIVO_GUARDAR_DATOS_API_PROCESADOS
+    - ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS
+    - ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1
+    - ARCHIVO_GUARDAR_TOTAL_CIUDADES_API
+    - ARCHIVO_EXTRACCION_API_DUPLICADOS
+
+    Retorna:
+    --------
+    pandas.DataFrame
+        DataFrame final con las columnas:
+        - 'nombre_pais_destino': nombre del país, limpio, normalizado y capitalizado.
+        - 'nombre_continente': continente correspondiente, con conflictos resueltos.
+
+    Proceso:
+    --------
+    1. Extrae los países y continentes desde:
+       - Turismo emisor (Dataestur).
+       - Scraping de destinos TUI.
+       - Itinerarios de los viajes.
+       - Datos de geolocalización vía OpenCage.
+    2. Detecta países no presentes en fuentes oficiales ni scraping, y completa con OpenCage.
+    3. Une y deduplica todos los registros.
+    4. Resuelve manualmente duplicados por país en varios continentes (se asignan a Asia).
+    5. Aplica normalización y capitalización a los nombres de países.
+
+    Notas:
+    ------
+    - El resultado final es clave para unir datos de distintas fuentes geográficas sin inconsistencias.
+    - Es recomendable guardar el resultado como tabla de referencia maestra de países y continentes.
+    """
     df_paises_continentes_turismos_emisor= lo.extraccion_unicos_pais_continente_turismo_emisor(archivo_guardar_datos_api_procesados = os.getenv('ARCHIVO_GUARDAR_DATOS_API_PROCESADOS'))
     df_paises_continentes_escrapeo = lo.extraccion_unicos_paises_escrapeados(archivo_guardar_continentes_procesados = os.getenv('ARCHIVO_GUARDAR_CONTINENTES_PROCESADOS'))
     df_itinerarios_ciudades_pais_continentes = lo.extraccion_unicos_paises_itinerarios(archivo_guardar_itinerarios_procesados_1 = os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1'))
@@ -268,6 +721,33 @@ def obtencion_tabla_paises_continentes_unicos():
     return df_paises_continentes_totales
 
 def carga_tabla_pais_destino(df_paises_continentes_totales):
+    """
+    Inserta en la base de datos los países y continentes que aún no están registrados en la tabla `pais_destino`.
+
+    Parámetros:
+    -----------
+    df_paises_continentes_totales : pandas.DataFrame
+        DataFrame con los países y continentes únicos, ya normalizados y listos para ser insertados.
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    - Extrae los registros actuales de la tabla `pais_destino` mediante `lo.extraer_datos_de_BBDD()`.
+    - Compara con los países del DataFrame recibido para detectar cuáles aún no están insertados.
+    - Construye una lista `data_to_insert` con los nuevos pares [nombre_pais_destino, nombre_continente].
+    - Inserta esos registros con la función `lo.insertar_datos_en_BBDD()` usando una sentencia SQL parametrizada.
+    - Imprime cuántos países se han añadido.
+
+    Notas:
+    ------
+    - Evita duplicados comparando contra los registros existentes en la base de datos.
+    - Esta función no retorna nada, pero informa del número de inserciones realizadas por consola.
+    - Se asume que la conexión a la base de datos y las funciones auxiliares (`extraer_datos_de_BBDD`, `insertar_datos_en_BBDD`)
+      están correctamente definidas en el módulo `lo`.
+    """
     #Extraigo la información de la BBDD
     query_extraccion = "SELECT nombre_pais_destino, id_pais_destino FROM pais_destino"
     pais_destino_dict=lo.extraer_datos_de_BBDD(query_extraccion)
@@ -292,7 +772,38 @@ def carga_tabla_pais_destino(df_paises_continentes_totales):
 
     print(f'Se han añadido {len(data_to_insert)} paises en la tabla pais_destino')
 
+
 def carga_tabla_itinerario (archivo_guardar_itinerarios_procesados_1=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')):
+    """
+    Inserta en la base de datos los itinerarios únicos que aún no están registrados en la tabla `itinerario`.
+
+    Parámetros:
+    -----------
+    archivo_guardar_itinerarios_procesados_1 : str, opcional
+        Ruta al archivo `.pkl` que contiene los itinerarios procesados.
+        Por defecto, se obtiene desde la variable de entorno 'ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1'.
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    - Carga los itinerarios desde el archivo de entrada.
+    - Corrige valores específicos (ej. 'Chequia' → 'Republica Checa').
+    - Aplica limpieza a los textos de itinerario (quita espacios innecesarios entre comas).
+    - Extrae la lista de itinerarios únicos.
+    - Compara contra los ya existentes en la tabla `itinerario` para evitar duplicados.
+    - Inserta en la base de datos los nuevos itinerarios utilizando `lo.insertar_datos_en_BBDD`.
+
+    Notas:
+    ------
+    - Utiliza `lo.limpiar_texto()` para limpiar los itinerarios.
+    - Usa `lo.extraer_datos_de_BBDD()` para consultar los itinerarios ya insertados.
+    - La inserción se realiza con una sentencia parametrizada.
+    - Informa por consola de cuántos itinerarios se encontraron y cuántos se insertaron.
+    - Asume que la tabla `itinerario` tiene una columna `detalle_itinerario` y una clave primaria `id_itinerario`.
+    """
     df_itinerarios_ciudades = pd.read_pickle(archivo_guardar_itinerarios_procesados_1)
     df_itinerarios_ciudades.pais_correcto= df_itinerarios_ciudades.pais_correcto.replace({
     'Chequia':'Republica Checa'
@@ -331,6 +842,38 @@ def carga_tabla_itinerario (archivo_guardar_itinerarios_procesados_1=os.getenv('
 
 
 def carga_tabla_ciudad (archivo_guardar_itinerarios_procesados_1=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')):
+    """
+    Inserta en la base de datos las ciudades únicas asociadas a sus países correspondientes
+    que aún no están registradas en la tabla `ciudad`.
+
+    Parámetros:
+    -----------
+    archivo_guardar_itinerarios_procesados_1 : str, opcional
+        Ruta al archivo `.pkl` que contiene los itinerarios y las ciudades procesadas.
+        Por defecto, se obtiene desde la variable de entorno 'ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1'.
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    - Carga las ciudades y países desde el archivo de entrada.
+    - Realiza correcciones de nombres (ej. 'Chequia' → 'Republica Checa').
+    - Deduplica las combinaciones ciudad–país.
+    - Normaliza y capitaliza ambas columnas.
+    - Consulta la base de datos para obtener:
+        - Las ciudades ya registradas (`ciudad`).
+        - El `id_pais_destino` correspondiente a cada país (`pais_destino`).
+    - Identifica las ciudades nuevas que no están en la tabla y prepara la lista de inserción.
+    - Inserta los nuevos registros usando `lo.insertar_datos_en_BBDD`.
+
+    Notas:
+    ------
+    - Utiliza funciones auxiliares del módulo `lo` para extracción e inserción de datos (`extraer_datos_de_BBDD`, `insertar_datos_en_BBDD`).
+    - Asume que la clave foránea `id_pais_destino` ya existe para cada país correspondiente.
+    - Informa por consola del número de ciudades únicas encontradas y cuántas han sido insertadas.
+    """
     df_itinerarios_ciudades = pd.read_pickle(archivo_guardar_itinerarios_procesados_1)
     df_itinerarios_ciudades.pais_correcto= df_itinerarios_ciudades.pais_correcto.replace({
     'Chequia':'Republica Checa'
@@ -376,6 +919,43 @@ def carga_tabla_ciudad (archivo_guardar_itinerarios_procesados_1=os.getenv('ARCH
     print(f'Se han añadido {len(data_to_insert)} ciudades nuevas en la tabla ciudad')
 
 def carga_tabla_ciudad_itinerario(archivo_guardar_itinerarios_procesados_1=os.getenv('ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1')):
+    """
+    Inserta en la base de datos las combinaciones únicas de ciudad e itinerario que aún no están registradas
+    en la tabla intermedia `ciudad_itinerario`.
+
+    Parámetros:
+    -----------
+    archivo_guardar_itinerarios_procesados_1 : str, opcional
+        Ruta al archivo `.pkl` con los datos de itinerarios y ciudades ya procesados.
+        Por defecto, se obtiene desde la variable de entorno 'ARCHIVO_GUARDAR_ITINERARIOS_PROCESADOS_1'.
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    - Carga los datos procesados con las columnas `ciudad` e `itinerario_modificado_para_dividir`.
+    - Corrige valores conocidos (ej. 'Chequia' → 'Republica Checa').
+    - Limpia los textos de itinerario y normaliza/capitaliza los nombres de ciudad.
+    - Deduplica las combinaciones ciudad–itinerario.
+    - Extrae de la base de datos:
+        - Las ciudades (`ciudad`: nombre → id).
+        - Los itinerarios (`itinerario`: texto → id).
+        - Las combinaciones ya registradas (`ciudad_itinerario`: tuplas de ids).
+    - Inserta solo las combinaciones nuevas de `(id_ciudad, id_itinerario)`.
+
+    Notas:
+    ------
+    - Utiliza funciones auxiliares del módulo `lo`, incluyendo:
+        - `extraer_datos_de_BBDD`
+        - `extraer_tupla_datos_bbdd`
+        - `insertar_datos_en_BBDD`
+        - `limpiar_texto` y `normalizar_capitalizar_columna`
+    - Informa por consola cuántas combinaciones únicas se encontraron y cuántas se insertaron.
+    - Garantiza que no haya duplicados en la tabla final.
+    - Se asume que `ciudad` y `itinerario` están previamente cargados en la base de datos.
+    """
     df_itinerarios_ciudades = pd.read_pickle(archivo_guardar_itinerarios_procesados_1)
     df_itinerarios_ciudades.pais_correcto= df_itinerarios_ciudades.pais_correcto.replace({
     'Chequia':'Republica Checa'
@@ -426,6 +1006,46 @@ def carga_tabla_ciudad_itinerario(archivo_guardar_itinerarios_procesados_1=os.ge
     print(f'Se han añadido {len(data_to_insert)} registros nuevos en la tabla ciudad_itinerario')
 
 def carga_tabla_viaje (archivo_guardar_escrapeo_viajes_procesados = os.getenv('ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS')):
+    """
+    Carga y actualiza la tabla `viaje` en la base de datos con los viajes únicos extraídos por scraping.
+    Se insertan los nuevos viajes y se actualiza el estado de "viaje activo" para los ya existentes.
+
+    Parámetros:
+    -----------
+    archivo_guardar_escrapeo_viajes_procesados : str, opcional
+        Ruta al archivo `.pkl` que contiene los datos de viajes ya procesados.
+        Por defecto, se obtiene desde la variable de entorno 'ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS'.
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    1. Carga los viajes desde archivo y limpia la columna `itinerario_modificado_para_dividir`.
+    2. Identifica qué viajes están activos (último escrapeo) y lo marca en la columna `en_ultimo_escrapeo`.
+    3. Deduplica los viajes por URL.
+    4. Divide la duración en días y noches en columnas separadas.
+    5. Convierte la columna `en_ultimo_escrapeo` a tipo booleano.
+    6. Consulta la base de datos para obtener:
+        - URLs ya existentes (`url_viaje`),
+        - Itinerarios con sus IDs,
+        - Combinaciones existentes de `url_viaje`, `nombre_viaje`, `viaje_activo`.
+    7. Prepara:
+        - Datos a insertar (nuevos viajes),
+        - Datos a actualizar (estado activo o nombre del viaje cambiado).
+    8. Inserta los nuevos registros en la tabla `viaje`.
+    9. Actualiza los existentes si ha cambiado su estado o nombre.
+
+    Notas:
+    ------
+    - Utiliza funciones auxiliares del módulo `lo`:
+        - `limpiar_texto`, `convertir_si_no_a_boolean`,
+        - `extraer_datos_de_BBDD`, `extraer_tupla_datos_bbdd`,
+        - `insertar_datos_en_BBDD`, `actualizar_datos_en_bbdd`.
+    - Imprime el número de viajes nuevos insertados y viajes existentes actualizados.
+    - Asegura que no se repitan viajes ya cargados, y mantiene actualizado el estado de los existentes.
+    """
     #importo el fichero procesado de viajes
     df_viajes_total = pd.read_pickle(archivo_guardar_escrapeo_viajes_procesados)
 
@@ -524,6 +1144,38 @@ def carga_tabla_viaje (archivo_guardar_escrapeo_viajes_procesados = os.getenv('A
     print(f'Se han actualizado {len(data_to_update)} viajes existentes en la BBDD')
 
 def carga_tabla_precio_viaje(archivo_guardar_escrapeo_viajes_procesados = os.getenv('ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS')):
+    """
+    Inserta en la base de datos los registros de precios de los viajes, extraídos por scraping, evitando duplicados.
+
+    Parámetros:
+    -----------
+    archivo_guardar_escrapeo_viajes_procesados : str, opcional
+        Ruta al archivo `.pkl` que contiene los datos de viajes procesados.
+        Por defecto, se obtiene desde la variable de entorno 'ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS'.
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    1. Carga los datos de scraping desde el archivo de viajes procesados.
+    2. Extrae las columnas relevantes: `url_viaje`, `precio`, `fecha_escrapeo`, y elimina duplicados.
+    3. Consulta en la base de datos:
+        - Los `id_viaje` asociados a cada `url_viaje`.
+        - Los registros ya existentes en la tabla `precio_viaje` como tuplas `(precio, fecha, id_viaje)`.
+    4. Prepara la lista de registros a insertar, descartando los que ya existen.
+    5. Inserta los nuevos precios en la base de datos usando `lo.insertar_datos_en_BBDD`.
+
+    Notas:
+    ------
+    - La función garantiza que no se insertan precios duplicados para un mismo viaje y fecha.
+    - Utiliza funciones auxiliares del módulo `lo`:
+        - `extraer_datos_de_BBDD`
+        - `extraer_tupla_datos_bbdd`
+        - `insertar_datos_en_BBDD`
+    - Informa por consola del número de precios únicos encontrados y cuántos han sido insertados.
+    """
     #importo el fichero procesado de viajes
     df_viajes_total = pd.read_pickle(archivo_guardar_escrapeo_viajes_procesados)
 
@@ -561,6 +1213,42 @@ def carga_tabla_precio_viaje(archivo_guardar_escrapeo_viajes_procesados = os.get
     print(f'Se han insertado {len(data_to_insert)} registros en la tabla precio_viaje')
 
 def carga_tabla_combinacion_destino_viaje(archivo_guardar_escrapeo_viajes_procesados = os.getenv('ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS')):
+    """
+    Inserta en la base de datos las combinaciones únicas de viajes y países de destino 
+    que aún no están registradas en la tabla `combinacion_destino_viaje`.
+
+    Parámetros:
+    -----------
+    archivo_guardar_escrapeo_viajes_procesados : str, opcional
+        Ruta al archivo `.pkl` que contiene los datos de viajes procesados con información de países.
+        Por defecto, se obtiene desde la variable de entorno 'ARCHIVO_GUARDAR_ESCRAPEO_VIAJES_PROCESADOS'.
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    1. Carga los viajes procesados desde el archivo.
+    2. Normaliza y capitaliza la columna `pais` para asegurar consistencia con la base de datos.
+    3. Filtra las columnas relevantes: `url_viaje` y `pais`, y elimina duplicados.
+    4. Consulta en la base de datos:
+        - Los IDs de los viajes (`viaje`).
+        - Los IDs de los países (`pais_destino`).
+        - Las combinaciones ya existentes (`combinacion_destino_viaje`).
+    5. Prepara las combinaciones `(id_viaje, id_pais_destino)` que aún no existen.
+    6. Inserta las nuevas combinaciones en la tabla intermedia.
+
+    Notas:
+    ------
+    - Utiliza funciones auxiliares del módulo `lo`, como:
+        - `normalizar_capitalizar_columna`
+        - `extraer_datos_de_BBDD`
+        - `extraer_tupla_datos_bbdd`
+        - `insertar_datos_en_BBDD`
+    - Asegura que no se generen duplicados en la tabla intermedia.
+    - Informa por consola el número de combinaciones nuevas insertadas.
+    """
     #importo el fichero procesado de viajes
     df_viajes_total = pd.read_pickle(archivo_guardar_escrapeo_viajes_procesados)
 
@@ -607,7 +1295,44 @@ def carga_tabla_combinacion_destino_viaje(archivo_guardar_escrapeo_viajes_proces
     lo.insertar_datos_en_BBDD(insert_query,data_to_insert)
     print(f'Se han añadido {len(data_to_insert)} registros en la tabla combinacion_destino_viaje')
 
+
 def carga_tabla_turismo_emisor(archivo_guardar_datos_api_procesados = os.getenv('ARCHIVO_GUARDAR_DATOS_API_PROCESADOS')):
+    """
+    Inserta en la base de datos los registros únicos de turismo emisor español, 
+    evitando duplicados y relacionando los países con sus IDs en la tabla `pais_destino`.
+
+    Parámetros:
+    -----------
+    archivo_guardar_datos_api_procesados : str, opcional
+        Ruta al archivo CSV con los datos de turismo emisor ya procesados.
+        Por defecto, se toma desde la variable de entorno 'ARCHIVO_GUARDAR_DATOS_API_PROCESADOS'.
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    1. Carga el archivo CSV con los datos oficiales del turismo emisor.
+    2. Normaliza y capitaliza los nombres de países destino.
+    3. Convierte las columnas `TURISTAS` y `PERNOCTACIONES` a enteros (limpiando formato europeo).
+    4. Construye un DataFrame con las columnas necesarias: `CCAA_ORIGEN`, `PAIS_DESTINO`, `TURISTAS`, `PERNOCTACIONES`, `AÑO`, `MES`.
+    5. Consulta en la base de datos:
+        - Combinaciones ya existentes para evitar duplicados.
+        - Diccionario con `nombre_pais_destino` → `id_pais_destino`.
+    6. Prepara las combinaciones nuevas (no existentes en BBDD).
+    7. Inserta los nuevos registros en la tabla `turismo_emisor`.
+
+    Notas:
+    ------
+    - Utiliza funciones auxiliares del módulo `lo`, como:
+        - `normalizar_capitalizar_columna`
+        - `extraer_datos_de_BBDD`
+        - `extraer_tupla_datos_bbdd`
+        - `insertar_datos_en_BBDD`
+    - Los registros duplicados no se insertan, lo que garantiza consistencia histórica.
+    - Informa por consola cuántos registros únicos había en el CSV y cuántos se han insertado.
+    """
     df_turismo_emisor_procesado=pd.read_csv(archivo_guardar_datos_api_procesados) #importe el fichero procesado
 
     #normalizo y capitalizo la columna PAIS_DESTINO:
@@ -654,6 +1379,40 @@ def carga_tabla_turismo_emisor(archivo_guardar_datos_api_procesados = os.getenv(
     print(f'Se han añadido {len(data_to_insert)} registros en la tabla turismo_emisor')
 
 def carga_total():
+    """
+    Ejecuta de forma secuencial la carga completa del modelo de datos en la base de datos.
+    Incluye todas las tablas de dimensiones, relaciones y hechos, asegurando que no se generen duplicados.
+
+    Parámetros:
+    -----------
+    None
+
+    Retorna:
+    --------
+    None
+
+    Proceso:
+    --------
+    1. Genera la tabla única de países y continentes (`df_paises_continentes_totales`).
+    2. Inserta o actualiza las tablas de dimensiones:
+        - `pais_destino`
+        - `itinerario`
+        - `ciudad`
+        - `ciudad_itinerario`
+    3. Inserta o actualiza las tablas fact:
+        - `viaje`
+        - `precio_viaje`
+        - `combinacion_destino_viaje`
+        - `turismo_emisor`
+    4. Cada subfunción interna se encarga de evitar duplicados y resolver claves foráneas.
+    5. Imprime por consola el progreso y confirma la finalización.
+
+    Notas:
+    ------
+    - Esta función es el punto de entrada ideal para ejecutar el proceso de carga completo tras el scraping y procesamiento.
+    - Depende del módulo `lo`, que debe contener todas las funciones de carga (`carga_tabla_*`) y la de obtención de países–continentes.
+    - Asegura el orden lógico de carga respetando dependencias (por ejemplo, ciudades después de países).
+    """
     print('TABLA PAIS_DESTINO')
     df_paises_continentes_totales= lo.obtencion_tabla_paises_continentes_unicos()
     lo.carga_tabla_pais_destino(df_paises_continentes_totales)
