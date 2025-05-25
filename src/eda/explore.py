@@ -21,6 +21,38 @@ DB_PORT = os.getenv("DB_PORT")
 
 def extraer_datos_bbdd_y_convertir_en_df (lista_nombre_columnas, query_extracción,dbname=DB_NAME, user=DB_USER,
                            password=DB_PASSWORD,host=DB_HOST, port=DB_PORT):
+    
+    """
+    Extrae datos desde una base de datos PostgreSQL y los convierte en un DataFrame de pandas.
+
+    Parámetros:
+    -----------
+    lista_nombre_columnas : list of str
+        Lista con los nombres de las columnas que tendrá el DataFrame resultante.
+    
+    query_extracción : str
+        Consulta SQL a ejecutar en la base de datos.
+    
+    dbname : str, opcional
+        Nombre de la base de datos a la que conectarse (por defecto, valor de `DB_NAME`).
+    
+    user : str, opcional
+        Usuario de la base de datos (por defecto, valor de `DB_USER`).
+    
+    password : str, opcional
+        Contraseña del usuario (por defecto, valor de `DB_PASSWORD`).
+    
+    host : str, opcional
+        Dirección del host de la base de datos (por defecto, valor de `DB_HOST`).
+    
+    port : str o int, opcional
+        Puerto de conexión de la base de datos (por defecto, valor de `DB_PORT`).
+
+    Retorna:
+    --------
+    pandas.DataFrame
+        Un DataFrame con los resultados de la consulta, usando los nombres de columnas proporcionados.
+    """
 
     conn, cur=lo.crear_conexión(dbname, user, password, host, port) #creo la conexión
 

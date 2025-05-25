@@ -1,0 +1,131 @@
+![Logo de TUI](data/imagenes/652884.webp)
+
+# **<span style="color:red">TUIverso</span>**
+
+*<span style="color:#00BFFF">Explorando el universo de destinos con datos y tendencias turísticas</span>*
+
+
+# **TUIverso – Informe Final del Proyecto**
+
+*Explorando el universo de destinos con datos y tendencias turísticas*
+
+---
+
+## 1. ✨ **Resumen Ejecutivo**
+
+Este proyecto analiza si los destinos que **TUI** ofrece a los clientes españoles están alineados con las **preferencias reales del turismo emisor** en España. Para ello se ha llevado a cabo un análisis integral de datos extraídos desde la web de TUI y desde la API de Dataestur. Los datos han sido transformados y almacenados en una base de datos PostgreSQL para facilitar su análisis posterior. 
+
+A través del desarrollo de un dashboard interactivo en Power BI y un análisis exploratorio profundo (EDA), se han detectado patrones, brechas y oportunidades de mejora que pueden ser aprovechadas por TUI para optimizar su oferta y estrategia comercial.
+
+**Resultados clave:**
+- TUI no prioriza destinos europeos, pese a ser los más demandados por los turistas españoles.
+- Los viajes ofertados por TUI suelen tener **duraciones mayores** a las que demanda el mercado.
+- El análisis muestra oportunidades claras para adaptar mejor la oferta al perfil del turista español.
+
+---
+
+## 2. 📄 **Descripción del Caso de Negocio**
+
+**TUI**, como líder mundial del sector turístico, gestiona una amplia oferta de viajes dirigidos a públicos diversos. Sin embargo, una oferta extensa no garantiza una estrategia efectiva si no está alineada con la demanda real del mercado.
+
+**Hipótesis del proyecto**: la oferta actual de TUI no refleja fielmente las preferencias de los turistas españoles.
+
+### 📌 Objetivos
+- Validar el ajuste entre la oferta de TUI y la demanda del turismo emisor español.
+- Detectar desajustes, brechas y oportunidades de mejora.
+- Diseñar un dashboard funcional para la toma de decisiones comerciales.
+- Facilitar herramientas de consulta a usuarios finales interesados en comparar opciones de viaje.
+
+---
+
+## 3. ⚙️ **Pipeline ETL**
+
+### 🧩 Fase de Extracción
+- **Página web de TUI**: scraping diario mediante BeautifulSoup para extraer información sobre viajes, itinerarios, duración, ciudades y precios.
+- **API de Dataestur**: descarga de CSV con datos oficiales del turismo emisor español (turistas y pernoctaciones por país y CCAA).
+
+### 🧼 Fase de Transformación
+- Limpieza y normalización de nombres de países y continentes.
+- Corrección de entradas inconsistentes (p. ej., continentes como "Caribe").
+- Geolocalización de ciudades mediante API OpenCage.
+- Conversión de duraciones, validación de URL y transformación de estructuras anidadas.
+
+### 🗃️ Fase de Carga
+- Diseño de una base de datos relacional PostgreSQL con claves foráneas y tablas interrelacionadas.
+- Scripts programados para insertar datos nuevos y actualizar viajes existentes.
+- Validación de duplicados, integridad de claves y automatización de procesos.
+
+### 🐞 Problemas enfrentados
+- Cambios dinámicos en URLs de TUI.
+- Asignación incorrecta de países a ciudades.
+- Continentes no oficiales o ficticios.
+- Datos duplicados por viajes en múltiples países.
+
+---
+
+## 4. 🔍 **Análisis de los Datos (EDA)**
+
+### 🌍 Oferta vs. Demanda
+- TUI tiene escasa presencia en destinos europeos, pese a que estos concentran el mayor número de turistas españoles.
+- En América, especialmente EEUU, existe una buena alineación entre oferta y demanda.
+
+### 🛏️ Pernoctaciones y Ciudades
+- En general, TUI tiende a ofrecer viajes con más noches que la media demandada.
+- Oceanía y África son los únicos continentes donde TUI ofrece menos noches.
+- Europa destaca por tener itinerarios más variados y complejos (más ciudades por viaje).
+
+### 💰 Precios y variaciones
+- Oceanía presenta los precios más altos.
+- África tiene la mayor variabilidad y los precios más extremos.
+- Solo 50 viajes presentan variaciones de precio. La mayoría son bajadas de entre 0 y 150€, aunque hay subidas superiores a los 1000€.
+
+### 📈 Tendencias de turismo emisor
+- Europa lidera en número de turistas.
+- A partir de 2021 se detecta una recuperación tras el descenso de la pandemia.
+- Francia, Portugal y Marruecos son destinos resilientes durante ese periodo.
+
+### 📊 Visualizaciones utilizadas
+- **Mapas** para comparar la oferta de TUI y la demanda real.
+- **Gráficos de barras** para países y continentes.
+- **Boxplots** para analizar precios, ciudades e itinerarios.
+- **Gráficos de líneas** para evolución temporal.
+- **Gráficos de tarta** para mostrar porcentajes y distribución de destinos.
+
+---
+
+## 5. 🌐 **Impacto de Negocio y Recomendaciones**
+
+### 💡 Insights claves
+- **La oferta actual de TUI no se ajusta** completamente a las preferencias del turista español.
+- Hay **poca presencia de destinos europeos**, que son los más visitados por los españoles.
+- Los **viajes ofertados por TUI son más largos** de lo que demanda el mercado.
+- El análisis permite evaluar hasta qué punto TUI adapta su oferta a la demanda real del mercado español. Esto es clave para **mejorar la estrategia comercial**, la captación de nuevos clientes y la personalización de su catálogo.
+
+### ✅ Recomendaciones estratégicas
+- **Aumentar la oferta en Europa**, especialmente en países como Francia, Portugal e Italia.
+- Ofrecer **viajes de menor duración**, adaptándose a las preferencias actuales del cliente medio.
+- Optimizar el uso de datos sobre **puntos de origen** para personalizar los paquetes turísticos.
+- Mejorar la funcionalidad **"Elige tu Aventura"** con filtros avanzados por precio, duración, y destinos populares.
+- Consolidar una estrategia de precios flexible que permita identificar oportunidades en destinos emergentes.
+
+---
+
+## 6. 📅 **Conclusiones y Próximos Pasos**
+
+El proyecto **TUIverso** ha demostrado cómo el análisis de datos puede generar valor estratégico para una empresa del sector turístico. La visualización de tendencias, brechas y patrones permite tomar decisiones basadas en hechos y no en suposiciones.
+
+La falta de alineación total entre oferta y demanda debe verse como una **oportunidad**, no como una debilidad. TUI tiene margen para optimizar su catálogo, segmentar su oferta y adaptarse más dinámicamente al mercado.
+
+### 🚀 Próximos pasos propuestos
+1. Analizar **CCAA de origen de los turistas** y cruzarlas con puntos de salida de TUI.
+2. Obtener datos de contratación real para estimar la **cuota de mercado**.
+3. Refactorizar el código del ETL para hacerlo más eficiente, modular y escalable.
+4. Desarrollar una aplicación web en **Streamlit** para ofrecer "Elige tu Aventura" como herramienta de marketing.
+5. Realizar sesiones de validación del dashboard con usuarios reales para obtener feedback útil.
+
+---
+
+> Proyecto desarrollado por **Vanesa Flores Rivera** – Bootcamp de Alto Rendimiento en Data Analytics, 2025.
+
+> Conecta conmigo en [LinkedIn](https://www.linkedin.com/in/vanesa-flores-rivera)
+
